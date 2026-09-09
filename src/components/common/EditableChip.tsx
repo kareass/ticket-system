@@ -1,19 +1,16 @@
 "use client";
 
 /**
- * EditableChip —— 列表格内「好看的可点选值」：
- * 平时显示一个带语义色的小标签(Chip，即当前值/原选项)，右带 ▼ 提示可改。
- *
- * 交互（用户 Gate 迭代 R5.1）：
- * - 点击彩条：原地不变，仅在其正下方弹出下拉面板（antd Dropdown 自带展开动画，更顺滑）。
- *   → 彩条即「原选项」始终保留显示，不会被下拉面板遮挡/替换。
- * - 下拉面板：每个选项左侧带语义色圆点(与收起彩条同色)，当前值高亮底固定 rgb(250,250,250) + 对勾；
- *   面板宽度随当前字段(所在单元格)宽度自适应。
- * - 选完立即收起并交给 onChange（是否落库由调用方决定，配合 useRowDrafts 走“提交”门）。
+ * EditableChip —— 列表格内可点选的「整格下拉值」：
+ * - 收起态不显示彩色标签：以普通文字（颜色与其它字段一致）平铺整个单元格，
+ *   小三角 ▾ 置于格子最右侧，提示此处可下拉；
+ * - 只要点击该格子即可触发下拉面板（面板宽度/文字颜色与字段一致）；
+ * - 打开后当前值/原选项仍在原位显示，不被面板遮挡；选项选中项以固定浅灰底+对勾标注。
+ * - 选中后交给 onChange（是否落库由调用方决定，配合 useRowDrafts 走“提交”门）。
  */
-import { useRef, useState } from "react";
-import { CheckOutlined, DownOutlined } from "@ant-design/icons";
-import { Dropdown, Tag, type MenuProps } from "antd";
+import { useEffect, useRef, useState } from "react";
+import { DownOutlined } from "@ant-design/icons";
+import { Dropdown, type MenuProps } from "antd";
 
 export interface ChipOption<V extends string | boolean> {
   label: string;
@@ -23,73 +20,46 @@ export interface ChipOption<V extends string | boolean> {
 interface EditableChipProps<V extends string | boolean> {
   value: V;
   options: ChipOption<V>[];
-  /** 根据某个选项值返回语义色（antd 预设色），undefined=默认灰 */
-  colorOf: (value: V) => string | undefined;
   onChange: (value: V) => void;
-  /** 该字段当前为待提交状态时展示橙色小点 */
+  /** 该字段当前为待提交状态时，在文字右缘/三角前展示橙色小点 */
   dirty?: boolean;
-}
-
-/** antd Tag 预设色 → 十六进制（用于选项左侧语义圆点）；未列出的取灰 */
-const PRESET_HEX: Record<string, string> = {
-  magenta: "#eb2f96",
-  pink: "#eb2f96",
-  red: "#f5222d",
-  volcano: "#fa541c",
-  orange: "#fa8c16",
-  gold: "#faad14",
-  lime: "#a0d911",
-  green: "#52c41a",
-  cyan: "#13c2c2",
-  blue: "#1677ff",
-  geekblue: "#2f54eb",
-  purple: "#722ed1",
-  success: "#52c41a",
-  processing: "#1677ff",
-  error: "#ff4d4d",
-  warning: "#faad14",
-  default: "#d9d9d9",
-};
-
-function presetToHex(color: string | undefined): string {
-  if (!color) return "#d9d9d9";
-  return PRESET_HEX[color] || "#d9d9d9";
+  /** 兼容保留：外部曾按值给色，本期改为与字段一致的普通文字色，忽略该参数 */
+  colorOf?: (value: V) => string | undefined;
 }
 
 export default function EditableChip<V extends string | boolean>({
   value,
   options,
-  colorOf,
   onChange,
   dirty,
 }: EditableChipProps<V>) {
   const [open, setOpen] = useState(false);
-  // 打开时量一下所在单元格宽度，让面板「宽度随当前字段宽度」
-  const cellRef = useRef<HTMLSpanElement>(null);
-  const [panelWidth, setPanelWidth] = useState<number | undefined>(undefined);
+  // 撑满整格：测量所在 td 的左右 padding，用负 margin 抵消，使三角真正贴格子最右、整格可点
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [pad, setPad] = useState<{ left: number; right: number }>({
+    left: 0,
+    right: 0,
+  });
+  const [cellWidth, setCellWidth] = useState<number | undefined>(undefined);
+
+  useEffect(() => {
+    const td = rootRef.current?.parentElement;
+    if (!td) return;
+    const cs = window.getComputedStyle(td);
+    const left = parseFloat(cs.paddingLeft) || 0;
+    const right = parseFloat(cs.paddingRight) || 0;
+    setPad({ left, right });
+    // 面板宽度随字段宽度：取整格（含 padding）宽度
+    const w = td.getBoundingClientRect().width;
+    setCellWidth(w > 0 ? Math.round(w) : undefined);
+  }, []);
 
   const current = options.find((o) => o.value === value);
   const label = current ? current.label : String(value);
 
-  const handleOpenChange = (o: boolean) => {
-    if (o) {
-      const w = cellRef.current?.closest("td")?.getBoundingClientRect().width;
-      setPanelWidth(w && w > 0 ? Math.round(w) : undefined);
-    }
-    setOpen(o);
-  };
-
   const items: MenuProps["items"] = options.map((opt) => ({
     key: String(opt.value),
-    label: (
-      <span className="ec-opt">
-        <i
-          className="ec-opt-dot"
-          style={{ background: presetToHex(colorOf(opt.value)) }}
-        />
-        {opt.label}
-      </span>
-    ),
+    label: opt.label,
   }));
 
   const onClickItem: MenuProps["onClick"] = ({ key }) => {
@@ -98,61 +68,89 @@ export default function EditableChip<V extends string | boolean>({
     if (hit) onChange(hit.value);
   };
 
+  const handleOpenChange = (o: boolean) => {
+    if (o) {
+      const td = rootRef.current?.parentElement;
+      if (td) {
+        const w = td.getBoundingClientRect().width;
+        if (w > 0) setCellWidth(Math.round(w));
+      }
+    }
+    setOpen(o);
+  };
+
   return (
-    <span ref={cellRef} style={{ display: "inline-flex" }}>
-      <Dropdown
-        trigger={["click"]}
-        open={open}
-        onOpenChange={handleOpenChange}
-        placement="bottomLeft"
-        menu={{
-          items,
-          onClick: onClickItem,
-          className: "ec-chip-dd",
-          selectable: true,
-          selectedKeys: [String(value)],
-          style: { minWidth: panelWidth || undefined },
+    <Dropdown
+      trigger={["click"]}
+      open={open}
+      onOpenChange={handleOpenChange}
+      placement="bottomLeft"
+      menu={{
+        items,
+        onClick: onClickItem,
+        className: "ec-chip-dd",
+        selectable: true,
+        selectedKeys: [String(value)],
+        style: { minWidth: cellWidth || undefined },
+      }}
+    >
+      {/* 整格可点的触发区：负 margin 抵消 td padding → 占满格、三角贴最右 */}
+      <div
+        ref={rootRef}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          minHeight: 22,
+          marginLeft: -pad.left,
+          marginRight: -pad.right,
+          width: `calc(100% + ${pad.left + pad.right}px)`,
+          cursor: "pointer",
+          userSelect: "none",
+          boxSizing: "border-box",
+          transition: "background-color .15s",
         }}
+        className="ec-chip-trigger"
+        title="点击选择"
       >
-        <Tag
-          color={colorOf(value)}
+        <span
           style={{
-            cursor: "pointer",
-            marginInlineEnd: 0,
-            userSelect: "none",
-            transition: "box-shadow .15s, filter .15s",
+            flex: 1,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            color: "rgba(0, 0, 0, 0.88)",
+            fontSize: 14,
           }}
-          title="点击选择"
         >
           {label}
+        </span>
+        {dirty ? (
           <span
             style={{
-              fontSize: 8,
-              marginLeft: 4,
-              opacity: open ? 1 : 0.75,
               display: "inline-block",
-              transition: "transform .15s",
-              transform: open ? "rotate(180deg)" : "rotate(0deg)",
-              verticalAlign: "1px",
+              width: 6,
+              height: 6,
+              marginRight: 6,
+              borderRadius: "50%",
+              background: "#fa8c16",
+              flex: "none",
             }}
-          >
-            <DownOutlined style={{ fontSize: 8 }} />
-          </span>
-          {dirty ? (
-            <span
-              style={{
-                display: "inline-block",
-                width: 6,
-                height: 6,
-                marginLeft: 5,
-                borderRadius: "50%",
-                background: "#fa8c16",
-                verticalAlign: "1px",
-              }}
-            />
-          ) : null}
-        </Tag>
-      </Dropdown>
-    </span>
+          />
+        ) : null}
+        <span
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flex: "none",
+            color: "rgba(0, 0, 0, 0.45)",
+            transition: "transform .15s",
+            transform: open ? "rotate(180deg)" : "rotate(0deg)",
+          }}
+        >
+          <DownOutlined style={{ fontSize: 10 }} />
+        </span>
+      </div>
+    </Dropdown>
   );
 }
