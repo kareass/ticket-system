@@ -1,0 +1,61 @@
+// =========================================
+// 四川物流工单系统 - Prisma 数据模型
+// 开发库：SQLite（file:./dev.db）
+// 正式环境可切换 PostgreSQL（见 .env.example）
+// =========================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- 工单表 WorkOrder ----------
+model WorkOrder {
+  id          String  @id @default(cuid())
+  date        DateTime // 日期（必填，日期选择器默认当天）
+  title       String // 标题（必填）
+  content     String // 工单内容（必填）
+  system      String  @default("WMS") // 系统（必填，默认 WMS）
+  isConvertToRequirement Boolean @default(false) // 是否转需求
+  remark      String? // 备注
+
+  // 一对一：工单 -> 需求（仅当转为需求时存在）
+  requirement Requirement?
+
+  status    String   @default("新建") // 工单状态（预留扩展）
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("WorkOrder")
+}
+
+// ---------- 需求表 Requirement ----------
+model Requirement {
+  id          String  @id @default(cuid()) // 内部主键
+  requirementId String @unique // 需求 ID（业务编号，必填、唯一）
+  date        DateTime // 日期（必填，日期选择器默认当天）
+  title       String? // 需求标题
+  content     String? // 需求内容
+  system      String  @default("WMS") // 系统（必填，默认 WMS）
+
+  // 开发时长（自动计算：date -> 当前；若已发版则为 date -> releaseDate）
+  developmentDays Int?
+
+  currentNode String @default("方案中") // 当前节点：方案中/开发中/测试中/已合并/已发布
+  isReleased Boolean @default(false) // 是否发版
+  releaseDate DateTime? // 发版时间（仅当 isReleased=true 时必填）
+  remark     String?
+
+  // 一对一：回指工单（来自工单转需求时建立）
+  workOrder   WorkOrder? @relation(fields: [workOrderId], references: [id])
+  workOrderId String?    @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("Requirement")
+}

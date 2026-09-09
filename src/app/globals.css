@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 全局基础样式 */
+html,
+body {
+  padding: 0;
+  margin: 0;
+  background: #f5f5f5;
+}
+
+/* antd 容器高度占满 */
+#root,
+.ant-app {
+  min-height: 100vh;
+}
