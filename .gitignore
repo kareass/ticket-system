@@ -33,5 +33,8 @@ Thumbs.db
 # 第三方 skill 拷贝（不作为本项目代码管理）
 mattpocock-skills/
 
+# 调度中间产物（总调度下发的任务卡等，不入库）
+_dispatch/
+
 # 测试与覆盖率
 /coverage
