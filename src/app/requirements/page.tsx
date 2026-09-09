@@ -49,6 +49,7 @@ const nodeOptions: { label: RequirementNode; value: RequirementNode }[] =
  */
 export default function RequirementListPage() {
   const requirements = useAppStore((s) => s.requirements);
+  const workOrders = useAppStore((s) => s.workOrders);
   const deleteRequirement = useAppStore((s) => s.deleteRequirement);
 
   // 需求ID/标题搜索关键字 / 当前节点筛选值（受控，allowClear 清空后为 undefined 表示不过滤）
@@ -85,6 +86,14 @@ export default function RequirementListPage() {
       dataIndex: "title",
       ellipsis: true,
       render: (title?: string) => title || "-",
+    },
+    {
+      // 文档字段：content（需求内容）
+      title: "需求内容",
+      dataIndex: "content",
+      width: 240,
+      ellipsis: true,
+      render: (content?: string) => content || "-",
     },
     {
       title: "系统",
@@ -131,6 +140,18 @@ export default function RequirementListPage() {
       width: 115,
       render: (_, record) =>
         record.isReleased ? formatDate(record.releaseDate) : "-",
+    },
+    {
+      // 文档字段：workOrderId（来源工单，一对一反向查工单表）
+      title: "来源工单",
+      width: 130,
+      render: (_, record) => {
+        if (!record.workOrderId) return "-";
+        const src = workOrders.find((w) => w.id === record.workOrderId);
+        return (
+          <Tag color="geekblue">{src ? src.title || src.id : record.workOrderId}</Tag>
+        );
+      },
     },
     {
       title: "备注",
@@ -207,7 +228,7 @@ export default function RequirementListPage() {
         rowKey="id"
         columns={columns}
         dataSource={filteredRequirements}
-        scroll={{ x: 1280 }}
+        scroll={{ x: 1560 }}
         pagination={{
           pageSize: 10,
           showSizeChanger: false,

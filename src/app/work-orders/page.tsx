@@ -36,6 +36,7 @@ const SYSTEM_COLORS: Record<string, string> = {
  */
 export default function WorkOrderListPage() {
   const workOrders = useAppStore((s) => s.workOrders);
+  const requirements = useAppStore((s) => s.requirements);
   const deleteWorkOrder = useAppStore((s) => s.deleteWorkOrder);
 
   // 标题搜索关键字 / 系统筛选值（受控，allowClear 清空后为 undefined 表示不过滤）
@@ -70,6 +71,14 @@ export default function WorkOrderListPage() {
       ellipsis: true,
     },
     {
+      // 文档字段：content（工单内容）
+      title: "工单内容",
+      dataIndex: "content",
+      width: 240,
+      ellipsis: true,
+      render: (content?: string) => content || "-",
+    },
+    {
       title: "系统",
       dataIndex: "system",
       width: 90,
@@ -83,6 +92,26 @@ export default function WorkOrderListPage() {
       width: 110,
       render: (isConvert: boolean) =>
         isConvert ? <Tag color="success">是</Tag> : <Tag>否</Tag>,
+    },
+    {
+      // 文档字段：requirementId / requirementContent（关联需求，一对一反向查需求表）
+      title: "关联需求",
+      width: 120,
+      render: (_, record) => {
+        const found = requirements.find((r) => r.workOrderId === record.id);
+        return found ? (
+          <Tag color="geekblue">{found.requirementId}</Tag>
+        ) : (
+          "-"
+        );
+      },
+    },
+    {
+      // 文档字段：status（状态：新建/已处理/已关闭，预留扩展）
+      title: "状态",
+      dataIndex: "status",
+      width: 90,
+      render: (status: string) => <Tag>{status}</Tag>,
     },
     {
       title: "备注",
@@ -159,7 +188,7 @@ export default function WorkOrderListPage() {
         rowKey="id"
         columns={columns}
         dataSource={filteredWorkOrders}
-        scroll={{ x: 760 }}
+        scroll={{ x: 1120 }}
         pagination={{
           pageSize: 10,
           showSizeChanger: false,
