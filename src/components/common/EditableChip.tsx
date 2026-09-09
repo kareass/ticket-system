@@ -94,10 +94,11 @@ export default function EditableChip<V extends string | boolean>({
         style: { minWidth: cellWidth || undefined },
       }}
     >
-      {/* 整格可点的触发区：负 margin 抵消 td padding → 占满格、三角贴最右 */}
+      {/* 整格可点的触发区：负 margin 抵消 td padding → 占满格、三角贴最右、值文本水平居中 */}
       <div
         ref={rootRef}
         style={{
+          position: "relative",
           display: "flex",
           alignItems: "center",
           minHeight: 22,
@@ -112,9 +113,13 @@ export default function EditableChip<V extends string | boolean>({
         className="ec-chip-trigger"
         title="点击选择"
       >
+        {/* 值文本：占满并水平居中（两侧预留空间以免与三角/橙点重叠） */}
         <span
           style={{
-            flex: 1,
+            width: "100%",
+            padding: "0 22px",
+            boxSizing: "border-box",
+            textAlign: "center",
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
@@ -124,28 +129,35 @@ export default function EditableChip<V extends string | boolean>({
         >
           {label}
         </span>
+        {/* 待提交橙点：贴近三角左侧，常驻（不影响文字居中） */}
         {dirty ? (
           <span
             style={{
-              display: "inline-block",
+              position: "absolute",
+              right: 18,
+              top: "50%",
               width: 6,
               height: 6,
-              marginRight: 6,
               borderRadius: "50%",
               background: "#fa8c16",
-              flex: "none",
+              transform: "translateY(-50%)",
             }}
           />
         ) : null}
+        {/* 小三角：绝对定位贴格子最右侧 */}
         <span
           style={{
+            position: "absolute",
+            right: 4,
+            top: "50%",
             display: "inline-flex",
             alignItems: "center",
             justifyContent: "center",
-            flex: "none",
             color: "rgba(0, 0, 0, 0.45)",
+            transform: open
+              ? "translateY(-50%) rotate(180deg)"
+              : "translateY(-50%) rotate(0deg)",
             transition: "transform .15s",
-            transform: open ? "rotate(180deg)" : "rotate(0deg)",
           }}
         >
           <DownOutlined style={{ fontSize: 10 }} />

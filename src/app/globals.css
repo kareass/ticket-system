@@ -46,3 +46,23 @@ body {
 .ec-chip-trigger {
   border-radius: 4px;
 }
+
+/* 下拉框（单选中 antd Select）展示内容：选中值/占位水平居中。
+   antd 单选 selection-item/placeholder 为 display:block 撑满格宽，对其 text-align:center 即可；
+   show-arrow 时 antd 已在右侧预留 paddingInlineEnd，此处左端对称预留以免中心偏左。 */
+.ant-select-single:not(.ant-select-customize-input)
+  .ant-select-selector
+  .ant-select-selection-item,
+.ant-select-single:not(.ant-select-customize-input)
+  .ant-select-selector
+  .ant-select-selection-placeholder {
+  text-align: center;
+}
+.ant-select-single:not(.ant-select-customize-input).ant-select-show-arrow
+  .ant-select-selector
+  .ant-select-selection-item,
+.ant-select-single:not(.ant-select-customize-input).ant-select-show-arrow
+  .ant-select-selector
+  .ant-select-selection-placeholder {
+  padding-inline: 16px;
+}
