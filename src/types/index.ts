@@ -1,6 +1,6 @@
 // 全局类型定义：与 prisma/schema.prisma 保持字段口径一致
 
-// 工单状态（预留扩展）
+// 工单状态（预留扩展，以设计文档为准：新建/已处理/已关闭）
 export type WorkOrderStatus = "新建" | "已处理" | "已关闭";
 
 // 系统枚举（下拉框选项）
@@ -45,8 +45,9 @@ export interface WorkOrder {
 
 // ---------- 需求 Requirement ----------
 export interface Requirement {
+  /** 内部主键（cuid） */
   id: string;
-  /** 需求 ID（业务编号，必填、唯一） */
+  /** 需求业务编号（必填、唯一，如 R-2026-001） */
   requirementId: string;
   /** 日期（必填，日期选择器默认当天） */
   date: string;
@@ -68,6 +69,8 @@ export interface Requirement {
   releaseDate?: string;
   /** 备注 */
   remark?: string;
+  /** 来源工单内部主键（工单转需求时填充，一对一，设计文档=关联工单ID workOrderId） */
+  workOrderId?: string;
   createdAt: string;
   updatedAt: string;
 }

@@ -57,6 +57,7 @@ export const mockRequirements: Requirement[] = [
     isUrgent: true,
     isReleased: false,
     remark: "由工单 wo-001 转化。",
+    workOrderId: "wo-001",
     createdAt: "2026-09-01T09:05:00.000Z",
     updatedAt: "2026-09-06T18:00:00.000Z",
   },
