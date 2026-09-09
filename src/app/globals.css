@@ -47,6 +47,11 @@ body {
   border-radius: 4px;
 }
 
+/* 列表表头标题水平居中（工单/需求两列表共用 ProTable） */
+.ant-table-thead > tr > th {
+  text-align: center;
+}
+
 /* 下拉框（单选中 antd Select）展示内容：选中值/占位水平居中。
    antd 单选 selection-item/placeholder 为 display:block 撑满格宽，对其 text-align:center 即可；
    show-arrow 时 antd 已在右侧预留 paddingInlineEnd，此处左端对称预留以免中心偏左。 */
