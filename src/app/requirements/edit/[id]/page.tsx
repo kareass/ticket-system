@@ -67,6 +67,7 @@ export default function EditRequirementPage() {
 
   return (
     <RequirementForm
+      key={requirement.id}
       mode="edit"
       initialValues={requirement}
       onSubmit={handleSubmit}

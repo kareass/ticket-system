@@ -9,17 +9,17 @@ import {
   Popconfirm,
   Select,
   Space,
-  Table,
   Tag,
 } from "antd";
-import type { TableProps } from "antd";
+import type { ColumnsType } from "antd/es/table";
 import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
 import type { Requirement, RequirementNode } from "@/types";
-import { NODE_OPTIONS } from "@/types";
+import { NODE_OPTIONS, SYSTEM_OPTIONS } from "@/types";
 import { useAppStore } from "@/store/store";
-import { formatDate } from "@/lib/utils";
+import { formatDate, today } from "@/lib/utils";
+import ProTable from "@/components/common/ProTable";
 
-// 系统标签配色：仅作视觉区分，未覆盖的系统退回默认灰色
+// 系统标签配色
 const SYSTEM_COLORS: Record<string, string> = {
   WMS: "blue",
   ERP: "purple",
@@ -28,7 +28,7 @@ const SYSTEM_COLORS: Record<string, string> = {
   其他: "gold",
 };
 
-// 需求当前节点配色：方案中=default / 开发中=processing / 测试中=warning / 已合并=cyan / 已发布=success
+// 需求当前节点配色
 const NODE_COLORS: Record<RequirementNode, string> = {
   方案中: "default",
   开发中: "processing",
@@ -37,26 +37,47 @@ const NODE_COLORS: Record<RequirementNode, string> = {
   已发布: "success",
 };
 
-// 当前节点筛选下拉选项：复用全局枚举 NODE_OPTIONS
+// 当前节点筛选下拉选项
 const nodeOptions: { label: RequirementNode; value: RequirementNode }[] =
   NODE_OPTIONS.map((node) => ({ label: node, value: node }));
 
+/** 内联下拉复用组件：antd Select size="small" 全宽 */
+function InlineSelect<T extends string>({
+  value,
+  onChange,
+  options,
+}: {
+  value: T;
+  onChange: (val: T) => void;
+  options: { label: string; value: T }[];
+}) {
+  return (
+    <Select
+      size="small"
+      style={{ width: "100%" }}
+      value={value}
+      onChange={onChange}
+      options={options}
+    />
+  );
+}
+
 /**
  * 需求列表页
- * - 数据源：全局 store（useAppStore.requirements），当前为 mock，后端就绪后无需改页面
- * - 新建 / 编辑分别链接到 /requirements/create、/requirements/edit/{id}
- * - 搜索（按需求ID或标题）与当前节点筛选在前端对 requirements 过滤，空态使用 Table 默认 Empty
+ * - 数据源：全局 store（useAppStore.requirements）
+ * - ProTable 提供列拖排序 + 拖宽能力
+ * - 系统/当前节点/是否加急/是否发版支持列表内联编辑
  */
 export default function RequirementListPage() {
   const requirements = useAppStore((s) => s.requirements);
   const workOrders = useAppStore((s) => s.workOrders);
   const deleteRequirement = useAppStore((s) => s.deleteRequirement);
+  const updateRequirement = useAppStore((s) => s.updateRequirement);
 
-  // 需求ID/标题搜索关键字 / 当前节点筛选值（受控，allowClear 清空后为 undefined 表示不过滤）
   const [keyword, setKeyword] = useState("");
   const [node, setNode] = useState<RequirementNode | undefined>(undefined);
 
-  // 前端过滤：需求ID或标题包含 + 当前节点相等（无关键字 / 未选节点时不参与过滤）
+  // 前端过滤：需求ID或标题包含 + 当前节点相等
   const filteredRequirements = useMemo(() => {
     const kw = keyword.trim().toLowerCase();
     return requirements.filter((req) => {
@@ -69,28 +90,32 @@ export default function RequirementListPage() {
     });
   }, [requirements, keyword, node]);
 
-  const columns: TableProps<Requirement>["columns"] = [
+  const columns: ColumnsType<Requirement> = [
     {
       title: "需求ID",
       dataIndex: "requirementId",
+      key: "requirementId",
       width: 130,
     },
     {
       title: "日期",
       dataIndex: "date",
+      key: "date",
       width: 110,
-      render: (_, record) => formatDate(record.date),
+      render: (date: string) => formatDate(date),
     },
     {
       title: "需求标题",
       dataIndex: "title",
+      key: "title",
+      width: 200,
       ellipsis: true,
       render: (title?: string) => title || "-",
     },
     {
-      // 文档字段：content（需求内容）
       title: "需求内容",
       dataIndex: "content",
+      key: "content",
       width: 240,
       ellipsis: true,
       render: (content?: string) => content || "-",
@@ -98,64 +123,141 @@ export default function RequirementListPage() {
     {
       title: "系统",
       dataIndex: "system",
-      width: 90,
-      render: (system: string) => (
-        <Tag color={SYSTEM_COLORS[system]}>{system}</Tag>
-      ),
+      key: "system",
+      width: 100,
+      render: (system: string, record) => {
+        const systemOpts = SYSTEM_OPTIONS.map((s) => ({
+          label: s,
+          value: s,
+        }));
+        return (
+          <InlineSelect
+            value={system}
+            onChange={(val) =>
+              updateRequirement(record.id, {
+                system: val,
+                updatedAt: new Date().toISOString(),
+              })
+            }
+            options={systemOpts}
+          />
+        );
+      },
     },
     {
       title: "开发时长(天)",
       dataIndex: "developmentDays",
+      key: "developmentDays",
       width: 110,
-      align: "center",
+      align: "center" as const,
       render: (days?: number) => (typeof days === "number" ? days : "-"),
     },
     {
       title: "当前节点",
       dataIndex: "currentNode",
-      width: 100,
-      render: (currentNode: RequirementNode) => (
-        <Tag color={NODE_COLORS[currentNode]}>{currentNode}</Tag>
-      ),
+      key: "currentNode",
+      width: 120,
+      render: (currentNode: RequirementNode, record) => {
+        const nodeOpts = NODE_OPTIONS.map((n) => ({ label: n, value: n }));
+        return (
+          <InlineSelect
+            value={currentNode}
+            onChange={(val) =>
+              updateRequirement(record.id, {
+                currentNode: val,
+                updatedAt: new Date().toISOString(),
+              })
+            }
+            options={nodeOpts}
+          />
+        );
+      },
     },
     {
       title: "是否加急",
       dataIndex: "isUrgent",
+      key: "isUrgent",
       width: 100,
-      align: "center",
-      render: (isUrgent: boolean) =>
-        isUrgent ? <Tag color="red">是</Tag> : <Tag>否</Tag>,
+      align: "center" as const,
+      render: (isUrgent: boolean, record) => (
+        <InlineSelect
+          value={isUrgent ? "true" : "false"}
+          onChange={(val) =>
+            updateRequirement(record.id, {
+              isUrgent: val === "true",
+              updatedAt: new Date().toISOString(),
+            })
+          }
+          options={[
+            { label: "否", value: "false" },
+            { label: "是", value: "true" },
+          ]}
+        />
+      ),
     },
     {
       title: "是否发版",
       dataIndex: "isReleased",
+      key: "isReleased",
       width: 100,
-      align: "center",
-      render: (isReleased: boolean) =>
-        isReleased ? <Tag color="success">是</Tag> : <Tag>否</Tag>,
+      align: "center" as const,
+      render: (isReleased: boolean, record) => (
+        <InlineSelect
+          value={isReleased ? "true" : "false"}
+          onChange={(val) => {
+            if (val === "true") {
+              // 改为是：若原本 false，发版时间默认今天
+              const patch: Partial<Requirement> = {
+                isReleased: true,
+                updatedAt: new Date().toISOString(),
+              };
+              if (!record.isReleased) {
+                patch.releaseDate = today();
+              }
+              updateRequirement(record.id, patch);
+            } else {
+              // 改为否：清空发版时间
+              updateRequirement(record.id, {
+                isReleased: false,
+                releaseDate: undefined,
+                updatedAt: new Date().toISOString(),
+              });
+            }
+          }}
+          options={[
+            { label: "否", value: "false" },
+            { label: "是", value: "true" },
+          ]}
+        />
+      ),
     },
     {
       title: "发版时间",
       dataIndex: "releaseDate",
+      key: "releaseDate",
       width: 115,
       render: (_, record) =>
         record.isReleased ? formatDate(record.releaseDate) : "-",
     },
     {
-      // 文档字段：workOrderId（来源工单，一对一反向查工单表）
       title: "来源工单",
+      key: "sourceWorkOrder",
       width: 130,
       render: (_, record) => {
         if (!record.workOrderId) return "-";
         const src = workOrders.find((w) => w.id === record.workOrderId);
         return (
-          <Tag color="geekblue">{src ? src.title || src.id : record.workOrderId}</Tag>
+          <Tag color="geekblue">
+            {src ? src.title || src.id : record.workOrderId}
+          </Tag>
         );
       },
     },
     {
       title: "备注",
       dataIndex: "remark",
+      key: "remark",
+      width: 160,
       ellipsis: true,
       render: (remark?: string) => remark || "-",
     },
@@ -163,6 +265,7 @@ export default function RequirementListPage() {
       title: "操作",
       key: "action",
       width: 150,
+      fixed: "right" as const,
       render: (_, record) => (
         <Space size={0}>
           <Link href={`/requirements/edit/${record.id}`}>
@@ -189,7 +292,7 @@ export default function RequirementListPage() {
 
   return (
     <Card title="需求列表">
-      {/* 顶部工具栏：新建入口居左，搜索与当前节点筛选居右，窄屏自动换行 */}
+      {/* 顶部工具栏 */}
       <div
         style={{
           display: "flex",
@@ -224,7 +327,7 @@ export default function RequirementListPage() {
         </Space>
       </div>
 
-      <Table<Requirement>
+      <ProTable<Requirement>
         rowKey="id"
         columns={columns}
         dataSource={filteredRequirements}

@@ -54,8 +54,10 @@ export default function EditWorkOrderPage() {
     );
   }
 
+  // ⑤ 强制每条记录独立重挂载，确保 initialValues 重新读取（Form initialValues 只在挂载时读一次）
   return (
     <WorkOrderForm
+      key={workOrder.id}
       mode="edit"
       initialValues={workOrder}
       onSubmit={handleSubmit}

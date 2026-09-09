@@ -9,13 +9,13 @@ import {
   Popconfirm,
   Select,
   Space,
-  Table,
   Tag,
 } from "antd";
-import type { TableProps } from "antd";
+import type { ColumnsType } from "antd/es/table";
 import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
+import ProTable from "@/components/common/ProTable";
 import { SYSTEM_OPTIONS } from "@/types";
-import type { WorkOrder } from "@/types";
+import type { WorkOrder, WorkOrderStatus } from "@/types";
 import { useAppStore } from "@/store/store";
 import { formatDate } from "@/lib/utils";
 
@@ -29,15 +29,44 @@ const SYSTEM_COLORS: Record<string, string> = {
 };
 
 /**
+ * 内联下拉小组件（模块级，支持列表格内直接修改）
+ * - 接收受控 value + onChange + options
+ * - onClick stopPropagation 防止触发行级操作
+ */
+function InlineSelect({
+  value,
+  onChange,
+  options,
+}: {
+  value: string | boolean | undefined;
+  onChange: (v: string | boolean) => void;
+  options: { label: string; value: string | boolean }[];
+}) {
+  return (
+    <Select
+      size="small"
+      style={{ width: "100%" }}
+      value={value}
+      options={options}
+      onChange={onChange}
+      allowClear={false}
+      onClick={(e) => e.stopPropagation()}
+    />
+  );
+}
+
+/**
  * 工单列表页
  * - 数据源：全局 store（useAppStore.workOrders），当前为 mock，后端就绪后无需改页面
  * - 新建 / 编辑分别链接到 /work-orders/create、/work-orders/edit/{id}（表单页另见任务卡）
  * - 搜索（按标题）与系统筛选在前端对 workOrders 过滤，空态使用 Table 默认 Empty
+ * - 列表格内可直接修改「是否转需求」「系统」「状态」字段
  */
 export default function WorkOrderListPage() {
   const workOrders = useAppStore((s) => s.workOrders);
   const requirements = useAppStore((s) => s.requirements);
   const deleteWorkOrder = useAppStore((s) => s.deleteWorkOrder);
+  const updateWorkOrder = useAppStore((s) => s.updateWorkOrder);
 
   // 标题搜索关键字 / 系统筛选值（受控，allowClear 清空后为 undefined 表示不过滤）
   const [keyword, setKeyword] = useState("");
@@ -54,11 +83,34 @@ export default function WorkOrderListPage() {
   }, [workOrders, keyword, system]);
 
   // 系统筛选下拉可选项：与 SystemSelect 一致，复用全局枚举 SYSTEM_OPTIONS
-  const systemOptions: { label: string; value: string }[] = SYSTEM_OPTIONS.map(
-    (item) => ({ label: item, value: item }),
-  );
+  const systemFilterOptions: { label: string; value: string }[] =
+    SYSTEM_OPTIONS.map((item) => ({ label: item, value: item }));
 
-  const columns: TableProps<WorkOrder>["columns"] = [
+  // 是否转需求 选项
+  const isConvertOptions = [
+    { label: "否", value: false },
+    { label: "是", value: true },
+  ];
+
+  // 系统 选项
+  const systemOptions = SYSTEM_OPTIONS.map((v) => ({
+    label: v,
+    value: v,
+  }));
+
+  // 状态 选项
+  const statusOptions = ["新建", "已处理", "已关闭"].map((v) => ({
+    label: v,
+    value: v,
+  }));
+
+  const columns: ColumnsType<WorkOrder> = [
+    {
+      // ① 工单ID列（直接显示 id 字符串，如 wo-001）
+      title: "工单ID",
+      dataIndex: "id",
+      width: 110,
+    },
     {
       title: "日期",
       dataIndex: "date",
@@ -68,10 +120,10 @@ export default function WorkOrderListPage() {
     {
       title: "标题",
       dataIndex: "title",
+      width: 220,
       ellipsis: true,
     },
     {
-      // 文档字段：content（工单内容）
       title: "工单内容",
       dataIndex: "content",
       width: 240,
@@ -81,22 +133,42 @@ export default function WorkOrderListPage() {
     {
       title: "系统",
       dataIndex: "system",
-      width: 90,
-      render: (system: string) => (
-        <Tag color={SYSTEM_COLORS[system]}>{system}</Tag>
+      width: 100,
+      render: (sys: string, record) => (
+        <InlineSelect
+          value={sys}
+          options={systemOptions}
+          onChange={(v) =>
+            updateWorkOrder(record.id, {
+              system: v as string,
+              updatedAt: new Date().toISOString(),
+            })
+          }
+        />
       ),
     },
     {
       title: "是否转需求",
       dataIndex: "isConvertToRequirement",
-      width: 110,
-      render: (isConvert: boolean) =>
-        isConvert ? <Tag color="success">是</Tag> : <Tag>否</Tag>,
+      width: 120,
+      render: (isConvert: boolean, record) => (
+        <InlineSelect
+          value={isConvert}
+          options={isConvertOptions}
+          onChange={(v) =>
+            updateWorkOrder(record.id, {
+              isConvertToRequirement: v as boolean,
+              updatedAt: new Date().toISOString(),
+            })
+          }
+        />
+      ),
     },
     {
-      // 文档字段：requirementId / requirementContent（关联需求，一对一反向查需求表）
+      // 关联需求：反查需求表，找到显示 Tag 需求业务编号，否则 "-"
       title: "关联需求",
-      width: 120,
+      key: "linkRequirement",
+      width: 140,
       render: (_, record) => {
         const found = requirements.find((r) => r.workOrderId === record.id);
         return found ? (
@@ -107,22 +179,35 @@ export default function WorkOrderListPage() {
       },
     },
     {
-      // 文档字段：status（状态：新建/已处理/已关闭，预留扩展）
       title: "状态",
       dataIndex: "status",
-      width: 90,
-      render: (status: string) => <Tag>{status}</Tag>,
+      width: 110,
+      render: (status: string, record) => (
+        <InlineSelect
+          value={status}
+          options={statusOptions}
+          onChange={(v) =>
+            updateWorkOrder(record.id, {
+              status: v as WorkOrderStatus,
+              updatedAt: new Date().toISOString(),
+            })
+          }
+        />
+      ),
     },
     {
       title: "备注",
       dataIndex: "remark",
+      width: 180,
       ellipsis: true,
       render: (remark?: string) => remark || "-",
     },
     {
+      // ② ③ 操作列固定在最右侧
       title: "操作",
       key: "action",
-      width: 140,
+      width: 150,
+      fixed: "right",
       render: (_, record) => (
         <Space size={0}>
           <Link href={`/work-orders/edit/${record.id}`}>
@@ -177,18 +262,18 @@ export default function WorkOrderListPage() {
             allowClear
             placeholder="按系统筛选"
             style={{ width: 160 }}
-            options={systemOptions}
+            options={systemFilterOptions}
             value={system}
             onChange={(value) => setSystem(value)}
           />
         </Space>
       </div>
 
-      <Table<WorkOrder>
+      <ProTable<WorkOrder>
         rowKey="id"
         columns={columns}
         dataSource={filteredWorkOrders}
-        scroll={{ x: 1120 }}
+        scroll={{ x: 1450 }}
         pagination={{
           pageSize: 10,
           showSizeChanger: false,
