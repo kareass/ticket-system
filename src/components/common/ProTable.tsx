@@ -10,18 +10,25 @@
  * 需要拖宽/拖排序的列建议给数值 `width`，无 width 的列只支持排序不支持拖宽）。
  * `scroll={{ x }}` 仍用于横向滚动，固定列始终钉在最右侧。
  *
- * 拖拽/拖宽均为纯前端表现层状态（列序、列宽只影响本组件内），不写回数据。
+ * 可选 `layoutStorageKey`：传入后会把「列顺序 + 列宽」自动持久化到浏览器
+ * localStorage（每张表一个独立 key，用户调整后自动保存；刷新/重进仍在）。
+ * 布局非默认时，表格上方右侧出现「还原默认列布局」小按钮，一键清空恢复。
+ * 存储格式：`protable:layout:<key>` → `{ order: string[], widths: Record<string, number> }`
+ * （固定列不参与排序/调宽，故不入存储）。
  */
 import React, {
   useCallback,
+  useEffect,
   useMemo,
+  useRef,
   useState,
   type CSSProperties,
   type DragEvent as ReactDragEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
-import { Table } from "antd";
+import { Button, Table } from "antd";
+import { ReloadOutlined } from "@ant-design/icons";
 import type { ColumnType, ColumnsType, TableProps } from "antd/es/table";
 
 type RecordTypeOf = object;
@@ -31,6 +38,12 @@ export interface ProTableProps<RecordType extends RecordTypeOf>
   columns: ColumnsType<RecordType>;
   /** 拖拽收缩的最小列宽（px），默认 60 */
   minColumnWidth?: number;
+  /**
+   * 列布局持久化 key：传入后用户调整的「列顺序 + 列宽」会存入
+   * localStorage（刷新/重进保留），且布局非默认时表格上方显示「还原默认列布局」按钮。
+   * 每张表用不同 key（如 "work-orders" / "requirements"），不传则不启用。
+   */
+  layoutStorageKey?: string;
 }
 
 type AnyCol<RecordType extends RecordTypeOf> = ColumnType<RecordType> & {
@@ -181,6 +194,7 @@ function HeaderCell(props: HeaderCellProps) {
 export default function ProTable<RecordType extends RecordTypeOf>({
   columns,
   minColumnWidth = 60,
+  layoutStorageKey,
   ...rest
 }: ProTableProps<RecordType>) {
   // 拆分：可排序普通列 + 固定右侧列（操作列等，始终钉在最右）
@@ -194,13 +208,108 @@ export default function ProTable<RecordType extends RecordTypeOf>({
     return { movable: movableCols, pinnedRight: pinnedCols };
   }, [columns]);
 
-  // 列顺序（只含可排序列）
-  const [order, setOrder] = useState<string[]>(() =>
-    movable.map((col) => colKeyOf(col)),
+  // 默认列序 = 当前可排序列的静态顺序（还原按钮的目标态）
+  const defaultOrder = useMemo(
+    () => movable.map((col) => colKeyOf(col)),
+    [movable],
   );
+
+  // 列顺序（只含可排序列）
+  const [order, setOrder] = useState<string[]>(defaultOrder);
 
   // 列宽覆盖（key -> px，仅记录用户拖宽过的列）
   const [widths, setWidths] = useState<Record<string, number>>({});
+
+  // 持久化 key（用户调整前为 undefined，避免 localStorage 不可用时报错/SSR 访问）
+  const storageKey = layoutStorageKey
+    ? `protable:layout:${layoutStorageKey}`
+    : undefined;
+
+  // 是否已从 localStorage 恢复过（恢复前不写回，防止一挂载就把默认值覆盖用户存档）
+  const restoredRef = useRef(false);
+
+  // 挂载后一次性恢复存档（localStorage 只在浏览器端存在，放 effect 防 SSR hydration 错位）
+  useEffect(() => {
+    if (!storageKey) return;
+    try {
+      const raw = window.localStorage.getItem(storageKey);
+      if (raw) {
+        const saved = JSON.parse(raw) as {
+          order?: unknown;
+          widths?: unknown;
+        };
+        // 仅采纳当前仍存在的列 key，存档里已移除的旧列 key 丢弃
+        const validKeys = new Set(defaultOrder);
+        const savedOrder = Array.isArray(saved.order)
+          ? (saved.order as unknown[]).filter(
+              (k): k is string => typeof k === "string" && validKeys.has(k),
+            )
+          : [];
+        // 存档里有的列按其保存顺序在前；存档未覆盖的新列按默认相对顺序补在末尾
+        const mergedOrder = [
+          ...savedOrder,
+          ...defaultOrder.filter((k) => !savedOrder.includes(k)),
+        ];
+        if (mergedOrder.length !== defaultOrder.length) {
+          /* 理论不可达（savedOrder⊆defaultOrder），防呆保底 */
+          setOrder(defaultOrder);
+        } else {
+          setOrder(mergedOrder);
+        }
+        // 恢复列宽：校验是正数、且对应的列仍在
+        if (saved.widths && typeof saved.widths === "object") {
+          const restoredWidths: Record<string, number> = {};
+          for (const [k, v] of Object.entries(
+            saved.widths as Record<string, unknown>,
+          )) {
+            if (validKeys.has(k) && typeof v === "number" && v > 0) {
+              restoredWidths[k] = v;
+            }
+          }
+          if (Object.keys(restoredWidths).length) setWidths(restoredWidths);
+        }
+      }
+    } catch {
+      // 存档损坏/被篡改时静默忽略，退回默认布局
+    }
+    restoredRef.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storageKey]);
+
+  // 布局变动即自动写回（自动保存；try/catch 兜底 localStorage 不可用）
+  useEffect(() => {
+    if (!storageKey || !restoredRef.current) return;
+    try {
+      window.localStorage.setItem(
+        storageKey,
+        JSON.stringify({ order, widths }),
+      );
+    } catch {
+      // 隐私模式/配额满时静默降级为不持久化
+    }
+  }, [storageKey, order, widths]);
+
+  /** 一键还原：列序回默认、清空列宽，并删掉存档 */
+  const handleResetLayout = useCallback(() => {
+    setOrder(defaultOrder);
+    setWidths({});
+    if (storageKey) {
+      try {
+        window.localStorage.removeItem(storageKey);
+      } catch {
+        /* 忽略 */
+      }
+    }
+  }, [defaultOrder, storageKey]);
+
+  // 是否与默认布局一致（决定要不要显示「还原默认列布局」按钮）
+  const isDefaultLayout = useMemo(
+    () =>
+      order.length === defaultOrder.length &&
+      defaultOrder.every((k, i) => order[i] === k) &&
+      Object.keys(widths).length === 0,
+    [order, defaultOrder, widths],
+  );
 
   const handleMove = useCallback(
     (fromKey: string, toKey: string) => {
@@ -268,11 +377,36 @@ export default function ProTable<RecordType extends RecordTypeOf>({
     [],
   );
 
+  // 布局非默认时，表格上方右侧显示「还原默认列布局」按钮
+  const showResetLayout =
+    Boolean(storageKey) && restoredRef.current && !isDefaultLayout;
+
   return (
-    <Table<RecordType>
-      {...rest}
-      columns={displayColumns}
-      components={components}
-    />
+    <>
+      {showResetLayout && (
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            marginBottom: 8,
+          }}
+        >
+          <Button
+            size="small"
+            type="text"
+            icon={<ReloadOutlined />}
+            onClick={handleResetLayout}
+            style={{ color: "#999" }}
+          >
+            还原默认列布局
+          </Button>
+        </div>
+      )}
+      <Table<RecordType>
+        {...rest}
+        columns={displayColumns}
+        components={components}
+      />
+    </>
   );
 }

@@ -262,6 +262,7 @@ export default function WorkOrderListPage() {
         columns={columns}
         dataSource={filteredWorkOrders.map(drafts.merge)}
         scroll={{ x: 1450 }}
+        layoutStorageKey="work-orders"
         pagination={{
           pageSize: 10,
           showSizeChanger: false,

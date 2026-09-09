@@ -334,6 +334,7 @@ export default function RequirementListPage() {
         columns={columns}
         dataSource={filteredRequirements.map(drafts.merge)}
         scroll={{ x: 1560 }}
+        layoutStorageKey="requirements"
         pagination={{
           pageSize: 10,
           showSizeChanger: false,
