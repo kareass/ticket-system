@@ -29,6 +29,8 @@ export interface RequirementFormValues {
   system: string;
   /** 当前节点 */
   currentNode: RequirementNode;
+  /** 是否加急（是/否，默认否） */
+  isUrgent: boolean;
   /** 是否发版 */
   isReleased: boolean;
   /** 发版时间（仅 isReleased=true 时必填） */
@@ -64,6 +66,7 @@ interface RequirementFormFields {
   content?: string;
   system?: string;
   currentNode?: RequirementNode;
+  isUrgent?: boolean;
   isReleased?: boolean;
   releaseDate?: Dayjs;
   remark?: string;
@@ -72,6 +75,12 @@ interface RequirementFormFields {
 /** 当前节点下拉选项：复用全局 NODE_OPTIONS */
 const nodeOptions: { label: RequirementNode; value: RequirementNode }[] =
   NODE_OPTIONS.map((node) => ({ label: node, value: node }));
+
+/** 是否加急下拉选项：是/否 */
+const urgentOptions: { label: string; value: boolean }[] = [
+  { label: "否", value: false },
+  { label: "是", value: true },
+];
 
 /**
  * 开发时长计算规则（表单实时预览与提交落库统一走此函数）：
@@ -119,6 +128,7 @@ function buildFormInitial(
       requirementId: "",
       system: "WMS",
       currentNode: "方案中",
+      isUrgent: false,
       isReleased: false,
     };
   }
@@ -129,6 +139,7 @@ function buildFormInitial(
     content: initialValues?.content,
     system: initialValues?.system,
     currentNode: initialValues?.currentNode,
+    isUrgent: initialValues?.isUrgent ?? false,
     isReleased: initialValues?.isReleased ?? false,
     releaseDate: initialValues?.releaseDate
       ? dayjs(initialValues.releaseDate)
@@ -194,6 +205,7 @@ export default function RequirementForm({
         content: values.content?.trim() || undefined,
         system: values.system ?? "",
         currentNode: values.currentNode ?? "方案中",
+        isUrgent: values.isUrgent ?? false,
         isReleased: values.isReleased ?? false,
         // 未发版时不保留发版时间（即使字段曾填过，卸载时 preserve=false 已清空，这里再兜底一次）
         releaseDate:
@@ -287,6 +299,18 @@ export default function RequirementForm({
               style={{ width: "100%" }}
               placeholder="请选择当前节点"
               options={nodeOptions}
+            />
+          </Form.Item>
+
+          <Form.Item
+            label="是否加急"
+            name="isUrgent"
+            rules={[{ required: true, message: "请选择是否加急" }]}
+          >
+            <Select
+              style={{ width: "100%" }}
+              placeholder="请选择是否加急"
+              options={urgentOptions}
             />
           </Form.Item>
 

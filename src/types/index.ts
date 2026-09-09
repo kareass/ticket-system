@@ -60,6 +60,8 @@ export interface Requirement {
   developmentDays?: number;
   /** 当前节点 */
   currentNode: RequirementNode;
+  /** 是否加急 */
+  isUrgent: boolean;
   /** 是否发版 */
   isReleased: boolean;
   /** 发版时间（仅 isReleased=true 时必填） */

@@ -34,6 +34,7 @@ export default function EditRequirementPage() {
       system: values.system,
       developmentDays: values.developmentDays,
       currentNode: values.currentNode,
+      isUrgent: values.isUrgent,
       isReleased: values.isReleased,
       // 未发版时清空原发版时间（改为否时不应残留旧值）
       releaseDate: values.isReleased ? values.releaseDate : undefined,

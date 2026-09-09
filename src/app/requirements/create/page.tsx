@@ -30,6 +30,7 @@ export default function CreateRequirementPage() {
       system: values.system,
       developmentDays: values.developmentDays,
       currentNode: values.currentNode,
+      isUrgent: values.isUrgent,
       isReleased: values.isReleased,
       releaseDate: values.isReleased ? values.releaseDate : undefined,
       remark: values.remark,

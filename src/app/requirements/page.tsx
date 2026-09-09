@@ -110,6 +110,14 @@ export default function RequirementListPage() {
       ),
     },
     {
+      title: "是否加急",
+      dataIndex: "isUrgent",
+      width: 100,
+      align: "center",
+      render: (isUrgent: boolean) =>
+        isUrgent ? <Tag color="red">是</Tag> : <Tag>否</Tag>,
+    },
+    {
       title: "是否发版",
       dataIndex: "isReleased",
       width: 100,
@@ -199,7 +207,7 @@ export default function RequirementListPage() {
         rowKey="id"
         columns={columns}
         dataSource={filteredRequirements}
-        scroll={{ x: 1180 }}
+        scroll={{ x: 1280 }}
         pagination={{
           pageSize: 10,
           showSizeChanger: false,

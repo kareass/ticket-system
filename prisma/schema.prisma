@@ -48,6 +48,7 @@ model Requirement {
   system      String  @default("WMS") // 系统（必填，下拉框，默认 WMS）
   developmentDays Int? // 开发时长（天，业务自动计算：date→当前；若已发版则为 date→releaseDate）
   currentNode String  @default("方案中") // 当前节点（方案中/开发中/测试中/已合并/已发布）
+  isUrgent    Boolean @default(false) // 是否加急（下拉框是/否，默认否）
   isReleased  Boolean @default(false) // 是否发版
   releaseDate DateTime? // 发版时间（仅当 isReleased=true 时业务层必填）
   remark      String? // 备注
