@@ -3,11 +3,13 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Layout, Menu } from "antd";
+import { Button, Layout, Menu } from "antd";
 import {
-  FileTextOutlined,
   AppstoreOutlined,
+  FileTextOutlined,
   HomeOutlined,
+  MenuFoldOutlined,
+  MenuUnfoldOutlined,
 } from "@ant-design/icons";
 
 const { Sider, Content } = Layout;
@@ -53,10 +55,10 @@ export default function RootLayoutClient({
         theme="light"
         width={220}
         collapsedWidth={64}
-        collapsible
         collapsed={collapsed}
         onCollapse={setCollapsed}
         breakpoint="lg"
+        trigger={null}
         style={{
           borderRight: "1px solid #f0f0f0",
           position: "sticky",
@@ -65,21 +67,37 @@ export default function RootLayoutClient({
           overflow: "auto",
         }}
       >
+        {/* 品牌栏 + 收缩/展开按钮 */}
         <div
           style={{
             display: "flex",
             alignItems: "center",
+            justifyContent: collapsed ? "center" : "space-between",
             gap: 8,
             height: 64,
-            padding: collapsed ? "0 20px" : "0 16px",
-            fontSize: collapsed ? 20 : 16,
-            fontWeight: 600,
-            color: "#1677ff",
-            whiteSpace: "nowrap",
-            overflow: "hidden",
+            padding: collapsed ? "0" : "0 8px 0 16px",
           }}
         >
-          {collapsed ? "川" : "四川物流工单系统"}
+          {!collapsed && (
+            <span
+              style={{
+                fontSize: 16,
+                fontWeight: 600,
+                color: "#1677ff",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+              }}
+            >
+              四川物流工单系统
+            </span>
+          )}
+          <Button
+            type="text"
+            aria-label={collapsed ? "展开导航" : "收缩导航"}
+            icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+            onClick={() => setCollapsed((c) => !c)}
+            style={{ fontSize: 16 }}
+          />
         </div>
         <Menu
           mode="inline"
