@@ -30,6 +30,7 @@ export default function EditWorkOrderPage() {
       content: values.content,
       system: values.system,
       isConvertToRequirement: values.isConvertToRequirement,
+      status: values.status,
       remark: values.remark,
       updatedAt: new Date().toISOString(),
     });

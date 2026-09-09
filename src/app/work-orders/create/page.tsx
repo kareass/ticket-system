@@ -29,7 +29,7 @@ export default function CreateWorkOrderPage() {
       system: values.system,
       isConvertToRequirement: values.isConvertToRequirement,
       remark: values.remark,
-      status: "新建",
+      status: values.status ?? "新建",
       createdAt: now,
       updatedAt: now,
     };

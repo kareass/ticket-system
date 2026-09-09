@@ -4,14 +4,22 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import dayjs from "dayjs";
 import type { Dayjs } from "dayjs";
-import { Button, Card, DatePicker, Form, Input, Switch } from "antd";
-import type { WorkOrder } from "@/types";
+import { Button, Card, DatePicker, Form, Input, Select, Switch } from "antd";
+import type { WorkOrder, WorkOrderStatus } from "@/types";
 import { today } from "@/lib/utils";
 import SystemSelect from "@/components/common/SystemSelect";
+
+// 工单状态可选项（与列表页内联可改一致：新建/已处理/已关闭）
+const STATUS_OPTIONS: { label: WorkOrderStatus; value: WorkOrderStatus }[] = [
+  { label: "新建", value: "新建" },
+  { label: "已处理", value: "已处理" },
+  { label: "已关闭", value: "已关闭" },
+];
 
 /**
  * 工单表单提交值
  * - date 已格式化为 YYYY-MM-DD 字符串，与 WorkOrder.date / mock 口径一致
+ * - status 为工单状态（新建/已处理/已关闭）
  * - 创建页 / 编辑页在 onSubmit 中据此组装完整 WorkOrder 写入 store
  */
 export interface WorkOrderFormValues {
@@ -25,6 +33,8 @@ export interface WorkOrderFormValues {
   system: string;
   /** 是否转需求（本期仅记录标记，自动同步为后续环节） */
   isConvertToRequirement: boolean;
+  /** 工单状态 */
+  status: WorkOrderStatus;
   /** 备注（可空） */
   remark?: string;
 }
@@ -53,6 +63,7 @@ interface WorkOrderFormFields {
   content?: string;
   system?: string;
   isConvertToRequirement?: boolean;
+  status?: WorkOrderStatus;
   remark?: string;
 }
 
@@ -72,7 +83,7 @@ function SystemSelectFormField(props: {
   );
 }
 
-/** 组装 antd Form 的 initialValues：date 字符串转 dayjs；创建模式默认今天 + WMS */
+/** 组装 antd Form 的 initialValues：date 字符串转 dayjs；创建模式默认今天 + WMS + 新建 */
 function buildFormInitial(
   mode: "create" | "edit",
   initialValues?: Partial<WorkOrder>,
@@ -82,6 +93,7 @@ function buildFormInitial(
       date: dayjs(),
       system: "WMS",
       isConvertToRequirement: false,
+      status: "新建",
     };
   }
   return {
@@ -90,6 +102,7 @@ function buildFormInitial(
     content: initialValues?.content,
     system: initialValues?.system,
     isConvertToRequirement: initialValues?.isConvertToRequirement,
+    status: initialValues?.status,
     remark: initialValues?.remark,
   };
 }
@@ -136,6 +149,8 @@ export default function WorkOrderForm({
         content: (values.content ?? "").trim(),
         system: values.system ?? "",
         isConvertToRequirement: values.isConvertToRequirement ?? false,
+        // status 有默认值（create=新建），兜底防止为空
+        status: values.status ?? "新建",
         remark: values.remark?.trim(),
       };
       await onSubmit(payload);
@@ -192,6 +207,19 @@ export default function WorkOrderForm({
             rules={[{ required: true, message: "请选择系统" }]}
           >
             <SystemSelectFormField />
+          </Form.Item>
+
+          <Form.Item
+            label="状态"
+            name="status"
+            rules={[{ required: true, message: "请选择工单状态" }]}
+            extra="新建 / 已处理 / 已关闭，可随工单处理进度手动调整"
+          >
+            <Select
+              style={{ width: "100%" }}
+              placeholder="请选择工单状态"
+              options={STATUS_OPTIONS}
+            />
           </Form.Item>
 
           <Form.Item
