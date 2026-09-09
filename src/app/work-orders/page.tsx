@@ -10,10 +10,13 @@ import {
   Select,
   Space,
   Tag,
+  message,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
 import ProTable from "@/components/common/ProTable";
+import EditableChip from "@/components/common/EditableChip";
+import { useRowDrafts } from "@/lib/useRowDrafts";
 import { SYSTEM_OPTIONS } from "@/types";
 import type { WorkOrder, WorkOrderStatus } from "@/types";
 import { useAppStore } from "@/store/store";
@@ -29,44 +32,20 @@ const SYSTEM_COLORS: Record<string, string> = {
 };
 
 /**
- * 内联下拉小组件（模块级，支持列表格内直接修改）
- * - 接收受控 value + onChange + options
- * - onClick stopPropagation 防止触发行级操作
- */
-function InlineSelect({
-  value,
-  onChange,
-  options,
-}: {
-  value: string | boolean | undefined;
-  onChange: (v: string | boolean) => void;
-  options: { label: string; value: string | boolean }[];
-}) {
-  return (
-    <Select
-      size="small"
-      style={{ width: "100%" }}
-      value={value}
-      options={options}
-      onChange={onChange}
-      allowClear={false}
-      onClick={(e) => e.stopPropagation()}
-    />
-  );
-}
-
-/**
  * 工单列表页
  * - 数据源：全局 store（useAppStore.workOrders），当前为 mock，后端就绪后无需改页面
  * - 新建 / 编辑分别链接到 /work-orders/create、/work-orders/edit/{id}（表单页另见任务卡）
  * - 搜索（按标题）与系统筛选在前端对 workOrders 过滤，空态使用 Table 默认 Empty
- * - 列表格内可直接修改「是否转需求」「系统」「状态」字段
+ * - 列表格内可直接修改「是否转需求」「系统」「状态」字段，修改暂存草稿，显式点「提交」才落库
  */
 export default function WorkOrderListPage() {
   const workOrders = useAppStore((s) => s.workOrders);
   const requirements = useAppStore((s) => s.requirements);
   const deleteWorkOrder = useAppStore((s) => s.deleteWorkOrder);
   const updateWorkOrder = useAppStore((s) => s.updateWorkOrder);
+
+  // 草稿状态：内联修改暂存草稿，显式提交才落库
+  const drafts = useRowDrafts<WorkOrder>();
 
   // 标题搜索关键字 / 系统筛选值（受控，allowClear 清空后为 undefined 表示不过滤）
   const [keyword, setKeyword] = useState("");
@@ -86,23 +65,13 @@ export default function WorkOrderListPage() {
   const systemFilterOptions: { label: string; value: string }[] =
     SYSTEM_OPTIONS.map((item) => ({ label: item, value: item }));
 
-  // 是否转需求 选项
-  const isConvertOptions = [
-    { label: "否", value: false },
-    { label: "是", value: true },
-  ];
-
-  // 系统 选项
-  const systemOptions = SYSTEM_OPTIONS.map((v) => ({
-    label: v,
-    value: v,
-  }));
-
-  // 状态 选项
-  const statusOptions = ["新建", "已处理", "已关闭"].map((v) => ({
-    label: v,
-    value: v,
-  }));
+  // 提交处理函数：将全部草稿批量落库
+  const handleCommit = () => {
+    const n = drafts.commit((id, patch) =>
+      updateWorkOrder(id, { ...patch, updatedAt: new Date().toISOString() }),
+    );
+    if (n > 0) message.success(`已提交 ${n} 条工单修改`);
+  };
 
   const columns: ColumnsType<WorkOrder> = [
     {
@@ -135,15 +104,12 @@ export default function WorkOrderListPage() {
       dataIndex: "system",
       width: 100,
       render: (sys: string, record) => (
-        <InlineSelect
+        <EditableChip
           value={sys}
-          options={systemOptions}
-          onChange={(v) =>
-            updateWorkOrder(record.id, {
-              system: v as string,
-              updatedAt: new Date().toISOString(),
-            })
-          }
+          options={SYSTEM_OPTIONS.map((v) => ({ label: v, value: v }))}
+          colorOf={(s) => (SYSTEM_COLORS as Record<string, string | undefined>)[s]}
+          dirty={drafts.isFieldDirty(record.id, "system")}
+          onChange={(v) => drafts.stage(record.id, { system: v } as Partial<WorkOrder>)}
         />
       ),
     },
@@ -152,14 +118,16 @@ export default function WorkOrderListPage() {
       dataIndex: "isConvertToRequirement",
       width: 120,
       render: (isConvert: boolean, record) => (
-        <InlineSelect
+        <EditableChip
           value={isConvert}
-          options={isConvertOptions}
+          options={[
+            { label: "否", value: false },
+            { label: "是", value: true },
+          ]}
+          colorOf={(v) => (v ? "blue" : undefined)}
+          dirty={drafts.isFieldDirty(record.id, "isConvertToRequirement")}
           onChange={(v) =>
-            updateWorkOrder(record.id, {
-              isConvertToRequirement: v as boolean,
-              updatedAt: new Date().toISOString(),
-            })
+            drafts.stage(record.id, { isConvertToRequirement: v } as Partial<WorkOrder>)
           }
         />
       ),
@@ -183,14 +151,18 @@ export default function WorkOrderListPage() {
       dataIndex: "status",
       width: 110,
       render: (status: string, record) => (
-        <InlineSelect
-          value={status}
-          options={statusOptions}
+        <EditableChip
+          value={status as WorkOrderStatus}
+          options={["新建", "已处理", "已关闭"].map((v) => ({
+            label: v,
+            value: v as WorkOrderStatus,
+          }))}
+          colorOf={(s) =>
+            s === "已处理" ? "success" : s === "新建" ? "gold" : undefined
+          }
+          dirty={drafts.isFieldDirty(record.id, "status")}
           onChange={(v) =>
-            updateWorkOrder(record.id, {
-              status: v as WorkOrderStatus,
-              updatedAt: new Date().toISOString(),
-            })
+            drafts.stage(record.id, { status: v as WorkOrderStatus } as Partial<WorkOrder>)
           }
         />
       ),
@@ -221,7 +193,10 @@ export default function WorkOrderListPage() {
             okText="删除"
             cancelText="取消"
             okButtonProps={{ danger: true }}
-            onConfirm={() => deleteWorkOrder(record.id)}
+            onConfirm={() => {
+              drafts.discard(record.id);
+              deleteWorkOrder(record.id);
+            }}
           >
             <Button type="link" size="small" danger>
               删除
@@ -244,11 +219,24 @@ export default function WorkOrderListPage() {
           marginBottom: 16,
         }}
       >
-        <Link href="/work-orders/create">
-          <Button type="primary" icon={<PlusOutlined />}>
-            新建工单
+        {/* 新建工单 + 提交/还原（草稿计数） */}
+        <Space>
+          <Link href="/work-orders/create">
+            <Button type="primary" icon={<PlusOutlined />}>
+              新建工单
+            </Button>
+          </Link>
+          <Button
+            type="primary"
+            disabled={drafts.count === 0}
+            onClick={handleCommit}
+          >
+            提交{drafts.count ? `（${drafts.count}）` : ""}
           </Button>
-        </Link>
+          {drafts.count > 0 ? (
+            <Button onClick={() => drafts.discard()}>还原</Button>
+          ) : null}
+        </Space>
         <Space wrap>
           <Input
             allowClear
@@ -272,7 +260,7 @@ export default function WorkOrderListPage() {
       <ProTable<WorkOrder>
         rowKey="id"
         columns={columns}
-        dataSource={filteredWorkOrders}
+        dataSource={filteredWorkOrders.map(drafts.merge)}
         scroll={{ x: 1450 }}
         pagination={{
           pageSize: 10,

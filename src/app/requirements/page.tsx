@@ -6,6 +6,7 @@ import {
   Button,
   Card,
   Input,
+  message,
   Popconfirm,
   Select,
   Space,
@@ -18,6 +19,8 @@ import { NODE_OPTIONS, SYSTEM_OPTIONS } from "@/types";
 import { useAppStore } from "@/store/store";
 import { formatDate, today } from "@/lib/utils";
 import ProTable from "@/components/common/ProTable";
+import EditableChip from "@/components/common/EditableChip";
+import { useRowDrafts } from "@/lib/useRowDrafts";
 
 // 系统标签配色
 const SYSTEM_COLORS: Record<string, string> = {
@@ -41,32 +44,12 @@ const NODE_COLORS: Record<RequirementNode, string> = {
 const nodeOptions: { label: RequirementNode; value: RequirementNode }[] =
   NODE_OPTIONS.map((node) => ({ label: node, value: node }));
 
-/** 内联下拉复用组件：antd Select size="small" 全宽 */
-function InlineSelect<T extends string>({
-  value,
-  onChange,
-  options,
-}: {
-  value: T;
-  onChange: (val: T) => void;
-  options: { label: string; value: T }[];
-}) {
-  return (
-    <Select
-      size="small"
-      style={{ width: "100%" }}
-      value={value}
-      onChange={onChange}
-      options={options}
-    />
-  );
-}
-
 /**
  * 需求列表页
  * - 数据源：全局 store（useAppStore.requirements）
  * - ProTable 提供列拖排序 + 拖宽能力
  * - 系统/当前节点/是否加急/是否发版支持列表内联编辑
+ * - 内联修改需点「提交」才落库（草稿门）
  */
 export default function RequirementListPage() {
   const requirements = useAppStore((s) => s.requirements);
@@ -76,6 +59,9 @@ export default function RequirementListPage() {
 
   const [keyword, setKeyword] = useState("");
   const [node, setNode] = useState<RequirementNode | undefined>(undefined);
+
+  // 草稿状态：修改后需显式点提交才落库
+  const drafts = useRowDrafts<Requirement>();
 
   // 前端过滤：需求ID或标题包含 + 当前节点相等
   const filteredRequirements = useMemo(() => {
@@ -89,6 +75,14 @@ export default function RequirementListPage() {
       return hitText && hitNode;
     });
   }, [requirements, keyword, node]);
+
+  // 提交全部草稿到 store
+  const handleCommit = () => {
+    const n = drafts.commit((id, patch) =>
+      updateRequirement(id, { ...patch, updatedAt: new Date().toISOString() }),
+    );
+    if (n > 0) message.success(`已提交 ${n} 条需求修改`);
+  };
 
   const columns: ColumnsType<Requirement> = [
     {
@@ -131,15 +125,14 @@ export default function RequirementListPage() {
           value: s,
         }));
         return (
-          <InlineSelect
+          <EditableChip
             value={system}
-            onChange={(val) =>
-              updateRequirement(record.id, {
-                system: val,
-                updatedAt: new Date().toISOString(),
-              })
-            }
             options={systemOpts}
+            colorOf={(s) => SYSTEM_COLORS[s]}
+            dirty={drafts.isFieldDirty(record.id, "system")}
+            onChange={(val) =>
+              drafts.stage(record.id, { system: val } as Partial<Requirement>)
+            }
           />
         );
       },
@@ -160,15 +153,14 @@ export default function RequirementListPage() {
       render: (currentNode: RequirementNode, record) => {
         const nodeOpts = NODE_OPTIONS.map((n) => ({ label: n, value: n }));
         return (
-          <InlineSelect
+          <EditableChip
             value={currentNode}
-            onChange={(val) =>
-              updateRequirement(record.id, {
-                currentNode: val,
-                updatedAt: new Date().toISOString(),
-              })
-            }
             options={nodeOpts}
+            colorOf={(n) => NODE_COLORS[n]}
+            dirty={drafts.isFieldDirty(record.id, "currentNode")}
+            onChange={(val) =>
+              drafts.stage(record.id, { currentNode: val } as Partial<Requirement>)
+            }
           />
         );
       },
@@ -180,18 +172,17 @@ export default function RequirementListPage() {
       width: 100,
       align: "center" as const,
       render: (isUrgent: boolean, record) => (
-        <InlineSelect
-          value={isUrgent ? "true" : "false"}
-          onChange={(val) =>
-            updateRequirement(record.id, {
-              isUrgent: val === "true",
-              updatedAt: new Date().toISOString(),
-            })
-          }
+        <EditableChip
+          value={isUrgent}
           options={[
-            { label: "否", value: "false" },
-            { label: "是", value: "true" },
+            { label: "否", value: false },
+            { label: "是", value: true },
           ]}
+          colorOf={(v) => (v ? "red" : undefined)}
+          dirty={drafts.isFieldDirty(record.id, "isUrgent")}
+          onChange={(val) =>
+            drafts.stage(record.id, { isUrgent: val } as Partial<Requirement>)
+          }
         />
       ),
     },
@@ -202,32 +193,26 @@ export default function RequirementListPage() {
       width: 100,
       align: "center" as const,
       render: (isReleased: boolean, record) => (
-        <InlineSelect
-          value={isReleased ? "true" : "false"}
+        <EditableChip
+          value={isReleased}
+          options={[
+            { label: "否", value: false },
+            { label: "是", value: true },
+          ]}
+          colorOf={(v) => (v ? "success" : undefined)}
+          dirty={drafts.isFieldDirty(record.id, "isReleased")}
           onChange={(val) => {
-            if (val === "true") {
-              // 改为是：若原本 false，发版时间默认今天
-              const patch: Partial<Requirement> = {
-                isReleased: true,
-                updatedAt: new Date().toISOString(),
-              };
-              if (!record.isReleased) {
-                patch.releaseDate = today();
-              }
-              updateRequirement(record.id, patch);
+            const enabling = val === true;
+            // value 即"改之前"的当前值（已叠加 merge 的 staged 数据）
+            const wasReleased = isReleased;
+            if (enabling) {
+              const patch: Partial<Requirement> = { isReleased: true };
+              if (!wasReleased) patch.releaseDate = today(); // 否→是：发版时间默认今天
+              drafts.stage(record.id, patch);
             } else {
-              // 改为否：清空发版时间
-              updateRequirement(record.id, {
-                isReleased: false,
-                releaseDate: undefined,
-                updatedAt: new Date().toISOString(),
-              });
+              drafts.stage(record.id, { isReleased: false, releaseDate: undefined });
             }
           }}
-          options={[
-            { label: "否", value: "false" },
-            { label: "是", value: "true" },
-          ]}
         />
       ),
     },
@@ -279,7 +264,10 @@ export default function RequirementListPage() {
             okText="删除"
             cancelText="取消"
             okButtonProps={{ danger: true }}
-            onConfirm={() => deleteRequirement(record.id)}
+            onConfirm={() => {
+              drafts.discard(record.id);
+              deleteRequirement(record.id);
+            }}
           >
             <Button type="link" size="small" danger>
               删除
@@ -302,11 +290,25 @@ export default function RequirementListPage() {
           marginBottom: 16,
         }}
       >
-        <Link href="/requirements/create">
-          <Button type="primary" icon={<PlusOutlined />}>
-            新建需求
+        <Space>
+          <Link href="/requirements/create">
+            <Button type="primary" icon={<PlusOutlined />}>
+              新建需求
+            </Button>
+          </Link>
+          {/* 提交按钮：有草稿时启用，显示待提交数量 */}
+          <Button
+            type="primary"
+            disabled={drafts.count === 0}
+            onClick={handleCommit}
+          >
+            提交{drafts.count ? `（${drafts.count}）` : ""}
           </Button>
-        </Link>
+          {/* 还原按钮：有草稿时才显示 */}
+          {drafts.count > 0 ? (
+            <Button onClick={() => drafts.discard()}>还原</Button>
+          ) : null}
+        </Space>
         <Space wrap>
           <Input
             allowClear
@@ -330,7 +332,7 @@ export default function RequirementListPage() {
       <ProTable<Requirement>
         rowKey="id"
         columns={columns}
-        dataSource={filteredRequirements}
+        dataSource={filteredRequirements.map(drafts.merge)}
         scroll={{ x: 1560 }}
         pagination={{
           pageSize: 10,
