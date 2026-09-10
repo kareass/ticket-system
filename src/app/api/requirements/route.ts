@@ -52,7 +52,7 @@ export async function GET(req: Request) {
  *   releaseDate 仅在 isReleased=true 时必填，否则落空；
  *   developmentDays 由服务端按规则重算，忽略提交值；
  *   workOrderId（可选）：关联来源工单（一对一），校验存在且未占用，
- *   事务内一并置父工单 isConvertToRequirement=true。
+ *   事务内一并置父工单 isConvertToRequirement=true 并回写父工单 requirementId（保持两侧编号一致）。
  * 返回 201 + 创建结果。
  */
 export async function POST(req: Request) {
@@ -140,12 +140,15 @@ export async function POST(req: Request) {
 
   try {
     if (workOrderId) {
-      // 事务：建需求 + 置父工单转需求标记
+      // 事务：建需求 + 置父工单转需求标记并回写需求ID（两侧编号保持一致）
       const [req] = await prisma.$transaction([
         prisma.requirement.create({ data }),
         prisma.workOrder.update({
           where: { id: workOrderId },
-          data: { isConvertToRequirement: true },
+          data: {
+            isConvertToRequirement: true,
+            requirementId: requirementId as string,
+          },
         }),
       ]);
       return NextResponse.json(toRequirementJson(req), { status: 201 });

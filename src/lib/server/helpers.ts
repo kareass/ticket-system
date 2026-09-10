@@ -73,6 +73,22 @@ export async function readJson(
   }
 }
 
+/**
+ * 业务失败异常：在事务内抛出以回滚整个事务，并由路由 catch 转为标准错误响应。
+ * 用法：throw new ApiFailure(409, "需求ID 已被占用。")
+ */
+export class ApiFailure extends Error {
+  status: number;
+  details?: string[];
+
+  constructor(status: number, message: string, details?: string[]) {
+    super(message);
+    this.name = "ApiFailure";
+    this.status = status;
+    this.details = details;
+  }
+}
+
 /** 统一错误响应：{ error: message }，可选 details */
 export function apiError(
   status: number,
@@ -111,6 +127,8 @@ export interface WorkOrderJson {
   content: string;
   system: string;
   isConvertToRequirement: boolean;
+  requirementId?: string;
+  requirementContent?: string;
   remark?: string;
   status: string;
   createdAt: string;
@@ -143,6 +161,8 @@ export function toWorkOrderJson(wo: DbWorkOrder): WorkOrderJson {
     content: wo.content,
     system: wo.system,
     isConvertToRequirement: wo.isConvertToRequirement,
+    requirementId: clean(wo.requirementId),
+    requirementContent: clean(wo.requirementContent),
     remark: clean(wo.remark),
     status: wo.status,
     createdAt: wo.createdAt.toISOString(),

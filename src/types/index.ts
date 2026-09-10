@@ -35,6 +35,10 @@ export interface WorkOrder {
   system: string;
   /** 是否转需求 */
   isConvertToRequirement: boolean;
+  /** 需求 ID（业务编号；「是否转需求」为是时必填，据此同步创建需求） */
+  requirementId?: string;
+  /** 需求内容（转需求时同步到需求表；留空则取工单标题） */
+  requirementContent?: string;
   /** 备注 */
   remark?: string;
   /** 工单状态（预留） */

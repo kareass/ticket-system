@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/server/db";
 import {
+  ApiFailure,
   SYSTEMS,
   WORK_ORDER_STATUSES,
   apiError,
@@ -12,6 +13,7 @@ import {
   toDayUtc,
   toWorkOrderJson,
 } from "@/lib/server/helpers";
+import { syncRequirementForWorkOrder } from "@/lib/server/work-order-sync";
 
 /** Prisma 客户端依赖 Node 运行时（勿被 Next 按 Edge 打包） */
 export const runtime = "nodejs";
@@ -44,7 +46,10 @@ export async function GET(req: Request) {
  * 新建工单。body（校验失败 → 400）：
  *   date* / title* / content* 必填；system（默认 WMS，须在系统枚举内）；
  *   status（默认「新建」，须在 新建/已处理/已关闭 内）；
- *   isConvertToRequirement（默认 false）；remark 可选。
+ *   isConvertToRequirement（默认 false）；remark 可选；
+ *   requirementId（需求ID）/ requirementContent（需求内容）可选，
+ *   但 isConvertToRequirement=true 时 requirementId 必填，且保存即自动同步创建需求
+ *   （需求ID 已被占用 → 409，整个创建回滚）。
  * 返回 201 + 创建结果（id / createdAt / updatedAt 由数据库生成）。
  */
 export async function POST(req: Request) {
@@ -77,21 +82,42 @@ export async function POST(req: Request) {
     errors.push("isConvertToRequirement 须为布尔值。");
   }
   const remark = asTrimmed(body.remark);
+  const requirementId = asTrimmed(body.requirementId);
+  const requirementContent = asTrimmed(body.requirementContent);
+
+  // 「转需求」必须带需求ID（设计文档：需求ID必填）
+  if (isConvertToRequirement === true && !requirementId) {
+    errors.push("isConvertToRequirement=true 时 requirementId 必填。");
+  }
 
   if (errors.length) return apiError(400, "参数校验失败。", errors);
 
-  const wo = await prisma.workOrder.create({
-    data: {
-      date: toDayUtc(date as string) as Date,
-      title: title as string,
-      content: content as string,
-      system,
-      status,
-      isConvertToRequirement: isConvertToRequirement ?? false,
-      // 空串（含前端「清空」语义）统一落 null，避免库中出现空字符串
-      ...(remark ? { remark } : {}),
-    },
-  });
-
-  return NextResponse.json(toWorkOrderJson(wo), { status: 201 });
+  try {
+    const wo = await prisma.$transaction(async (tx) => {
+      const created = await tx.workOrder.create({
+        data: {
+          date: toDayUtc(date as string) as Date,
+          title: title as string,
+          content: content as string,
+          system,
+          status,
+          isConvertToRequirement: isConvertToRequirement ?? false,
+          // 空串（含前端「清空」语义）统一落 null，避免库中出现空字符串
+          ...(requirementId ? { requirementId } : {}),
+          ...(requirementContent ? { requirementContent } : {}),
+          ...(remark ? { remark } : {}),
+        },
+      });
+      // 转需求 → 同步创建需求；失败则整笔回滚（不留半成品工单）
+      if (created.isConvertToRequirement) {
+        const sync = await syncRequirementForWorkOrder(created, tx);
+        if (!sync.ok) throw new ApiFailure(sync.status, sync.error);
+      }
+      return created;
+    });
+    return NextResponse.json(toWorkOrderJson(wo), { status: 201 });
+  } catch (err) {
+    if (err instanceof ApiFailure) return apiError(err.status, err.message, err.details);
+    throw err;
+  }
 }

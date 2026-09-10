@@ -19,7 +19,11 @@
 
 ## 工单 WorkOrder
 
-响应字段：`id`(内部cuid), `date`, `title`, `content`, `system`, `isConvertToRequirement`, `remark?`, `status`, `createdAt`, `updatedAt`
+响应字段：`id`(内部cuid), `date`, `title`, `content`, `system`, `isConvertToRequirement`, `requirementId?`, `requirementContent?`, `remark?`, `status`, `createdAt`, `updatedAt`
+
+> `requirementId`（需求ID）/ `requirementContent`（需求内容）对应设计方案「工单表」字段：
+> `isConvertToRequirement=true` 时 `requirementId` **必填**，保存工单即在**同一事务内**据此自动同步创建需求；
+> `=false` 时可先登记 `requirementId`（草稿态），随后从列表点「转需求」按该编号创建。
 
 ### 列表 · `GET /api/work-orders`
 可选查询：`?system=WMS&keyword=出库`（keyword 匹配标题，忽略大小写）。按 `createdAt` 倒序。
@@ -38,15 +42,22 @@
   "system": "WMS",                 // 默认 WMS，须在枚举内
   "status": "新建",                 // 默认「新建」，须在枚举内
   "isConvertToRequirement": false, // 默认 false
+  "requirementId": "R-2026-006",   // 需求ID；isConvertToRequirement=true 时必填
+  "requirementContent": "……",      // 需求内容；留空则建需求时取工单标题
   "remark": "可选"
 }
 ```
 `developmentDays`/时间戳由服务端生成，传入忽略。
-响应：`201` → `WorkOrder`；`400` 校验失败（含 details）
+`isConvertToRequirement=true` 时请求须带 `requirementId`，服务端在同一事务内创建需求（编号撞号 → `409`，整笔创建回滚）。
+响应：`201` → `WorkOrder`；`400` 校验失败（含 details）；`409` 需求ID 已被占用
 
 ### 更新 · `PUT /api/work-orders/{id}`
-请求体：上述任意字段（局部更新）。`remark` 传空串将置空。
-响应：`200` → `WorkOrder`；`400` 校验失败 / 无可更新字段；`404` 工单不存在
+请求体：上述任意字段（局部更新）。`remark`/`requirementId`/`requirementContent` 传空串将置空。额外行为：
+
+- `isConvertToRequirement` 置 `true` → **事务内**按工单的 `requirementId` 自动同步需求：未关联则创建，已关联且编号变化则同步改名；`requirementId` 为空 → `400`，编号被占用 → `409`；
+- 已关联需求的工单不允许把 `isConvertToRequirement` 置 `false` → `400`（如需取消请先删除关联需求）。
+
+响应：`200` → `WorkOrder`；`400` 校验失败 / 无可更新字段 / 缺需求ID / 已关联时关闭转需求；`404` 工单不存在；`409` 需求ID 已被占用
 
 ### 删除 · `DELETE /api/work-orders/{id}`
 响应：`204` 成功；`404` 不存在；`409` 该工单已转需求（存在关联需求），需先删除关联需求
@@ -80,38 +91,39 @@
   "workOrderId": null          // 可选：关联来源工单（一对一）。见下
 }
 ```
-`workOrderId` 语义：把该需求挂到某张工单下（工单转需求）。校验来源工单存在且尚未关联需求（冲突 → `409`）；成功时**事务内**一并把来源工单 `isConvertToRequirement` 置 `true`。
+`workOrderId` 语义：把该需求挂到某张工单下（工单转需求）。校验来源工单存在且尚未关联需求（冲突 → `409`）；成功时**事务内**一并把来源工单 `isConvertToRequirement` 置 `true`，并将本需求的 `requirementId` 回写到该工单（保持两侧编号一致）。
 响应：`201` → `Requirement`；`400` 校验失败；`409` 编号撞号 / 来源工单已关联需求
 
 ### 更新 · `PUT /api/requirements/{id}`
 请求体：上述任意字段（局部更新）。额外行为：
 - `isReleased` 置 `true` 而未给 `releaseDate` → 自动按当天补齐；置 `false` → 清空 `releaseDate`；
 - `developmentDays` 依据更新后有效值自动重算；
-- `requirementId` 可改但须唯一（撞号 → 409）；
+- `requirementId` 可改但须唯一（撞号 → 409）；若该需求来自工单，**事务内**一并把来源工单的 `requirementId` 同步为同一编号；
 - `workOrderId` 不可经此接口修改来源工单（转需求走专用接口）。
 
 响应：`200` → `Requirement`；`400`；`404`；`409`
 
 ### 删除 · `DELETE /api/requirements/{id}`
-若该需求由工单转化而来，**事务内**一并把来源工单 `isConvertToRequirement` 复位为 `false`。
+若该需求由工单转化而来，**事务内**一并把来源工单 `isConvertToRequirement` 复位为 `false`；工单上的 `requirementId`/`requirementContent` **保留**，便于按原编号再次转需求。
 响应：`204`；`404`
 
 ## 工单转需求（一对一同步）· `POST /api/work-orders/{id}/convert`
 请求体：可空（`{}` 或空）。逻辑：
 1. 工单不存在 → `404`；
 2. 已转需求（`isConvertToRequirement=true` 或已有关联需求）→ `409`；
-3. **事务内**新建需求并置工单标记：自动拷贝 `date/title/content/system`，自动生成业务编号 `R-{年}-{序号}`（不重复），`currentNode=方案中`，`developmentDays` 按 `date→今天` 计算，`workOrderId` 指向该工单，`remark` 注明来源。
+3. 工单未填写 `requirementId` → `400`（**需求ID 必填，不填不能完成转需求**）；
+4. **事务内**按工单的 `requirementId` 创建需求：日期取工单日期、标题取工单标题、内容取工单 `requirementContent`（留空则取标题）、系统取工单系统、`currentNode=方案中`、`developmentDays` 按 `date→今天` 计算、`workOrderId` 指向该工单、`remark` 注明来源；并置工单 `isConvertToRequirement=true`。
 
-响应：`201` → `{ "requirement": Requirement, "workOrder": WorkOrder }`；`404`；`409`（已转/并发重复操作）
+响应：`201` → `{ "requirement": Requirement, "workOrder": WorkOrder }`；`400` 未填需求ID；`404`；`409`（已转 / 编号被占用）
 
 ## 错误码汇总
 
 | 状态码 | 含义 |
 |--------|------|
-| 400 | 参数校验失败 / 请求体非 JSON / 无可更新字段；附 details |
+| 400 | 参数校验失败 / 请求体非 JSON / 无可更新字段 / 转需求时缺需求ID / 已关联需求时关闭转需求；附 details |
 | 404 | 目标记录不存在 |
 | 409 | 唯一冲突（编号撞号）或状态冲突（已转需求 / 来源工单已占用 / 删除有关联需求的工单） |
 | 204 | 删除成功（无响应体） |
 
 ## 自动化测试
-`node scripts/api-smoke.mjs` —— 需先启动 dev server；覆盖全部 CRUD、409/404/400、发版联动、开发时长重算、来源链接与删除一致性（45 项断言全绿）。
+`node scripts/api-smoke.mjs` —— 需先启动 dev server；覆盖全部 CRUD、需求ID 同步（必填/改名/撞号/锁定）、409/404/400、发版联动、开发时长重算、来源链接与删除一致性（78 项断言全绿，运行后自动清理测试数据）。

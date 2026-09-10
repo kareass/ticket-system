@@ -11,6 +11,7 @@ import {
   Select,
   Space,
   Tag,
+  Tooltip,
   message,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
@@ -36,8 +37,10 @@ const SYSTEM_COLORS: Record<string, string> = {
 /**
  * 工单列表页（环节5：数据源为真实后端 API）
  * - 挂载时拉取工单 + 需求（后者用于「关联需求」列反查）
- * - 列表内可改「系统 / 是否转需求 / 状态」→ 暂存草稿，点「提交」并确认后才落库
- * - 操作列提供「转需求」：调用后端一对一转换接口，自动创建需求并置标记
+ * - 列表内可改「系统 / 状态」→ 暂存草稿，点「提交」并确认后才落库
+ * - 「是否转需求」只读展示：转需求由「编辑工单填写需求ID（可开启开关保存即同步）」或
+ *   操作列「转需求」按钮驱动，避免在未填需求ID 的情况下误切标志
+ * - 操作列提供「转需求」：按工单填写的需求ID 调后端一对一转换接口并置标记
  * - 所有失败（校验/冲突/网络）统一用 toErrorMessage 友好提示
  */
 export default function WorkOrderListPage() {
@@ -97,11 +100,16 @@ export default function WorkOrderListPage() {
     });
   };
 
-  // 转需求：确认后调用后端一对一转换（自动建需求 + 置工单标记）
+  // 转需求：确认后调用后端一对一转换（按工单填写的需求ID 建需求 + 置工单标记）
   const handleConvert = (record: WorkOrder) => {
+    // 需求ID 必填：未填写时先引导去编辑工单填写，不发请求
+    if (!record.requirementId) {
+      message.warning("该工单尚未填写「需求ID」，请先点「编辑」填写需求ID 后再转需求。");
+      return;
+    }
     Modal.confirm({
       title: "确认将该工单转为需求？",
-      content: `将按工单「${record.title}」自动创建需求（日期/标题/内容/系统同步），并标记该工单已转需求。`,
+      content: `将按需求ID「${record.requirementId}」创建需求（日期/标题/内容/系统同步自该工单），并标记该工单已转需求。`,
       okText: "转为需求",
       cancelText: "取消",
       onOk: async () => {
@@ -157,36 +165,30 @@ export default function WorkOrderListPage() {
       ),
     },
     {
+      // 是否转需求：由「填写需求ID / 转需求」驱动，故列表内只读展示，避免误切导致状态脱节
       title: "是否转需求",
       dataIndex: "isConvertToRequirement",
-      width: 120,
-      render: (isConvert: boolean, record) => (
-        <EditableChip
-          value={isConvert}
-          options={[
-            { label: "否", value: false },
-            { label: "是", value: true },
-          ]}
-          colorOf={(v) => (v ? "blue" : undefined)}
-          dirty={drafts.isFieldDirty(record.id, "isConvertToRequirement")}
-          onChange={(v) =>
-            drafts.stage(record.id, { isConvertToRequirement: v } as Partial<WorkOrder>)
-          }
-        />
-      ),
+      width: 110,
+      align: "center" as const,
+      render: (isConvert: boolean) =>
+        isConvert ? <Tag color="blue">是</Tag> : <Tag>否</Tag>,
     },
     {
-      // 关联需求：反查需求表，找到显示 Tag 需求业务编号，否则 "-"
+      // 关联需求：反查需求表命中显示需求编号；仅填了需求ID尚未转需求时以灰标提示
       title: "关联需求",
       key: "linkRequirement",
-      width: 140,
+      width: 150,
       render: (_, record) => {
         const found = requirements.find((r) => r.workOrderId === record.id);
-        return found ? (
-          <Tag color="geekblue">{found.requirementId}</Tag>
-        ) : (
-          "-"
-        );
+        if (found) return <Tag color="geekblue">{found.requirementId}</Tag>;
+        if (record.requirementId) {
+          return (
+            <Tooltip title="工单已填写需求ID，尚未转需求（可在操作列点「转需求」）">
+              <Tag color="default">{record.requirementId}</Tag>
+            </Tooltip>
+          );
+        }
+        return "-";
       },
     },
     {
@@ -235,7 +237,11 @@ export default function WorkOrderListPage() {
             size="small"
             disabled={record.isConvertToRequirement}
             title={
-              record.isConvertToRequirement ? "该工单已转需求" : "自动创建需求并关联"
+              record.isConvertToRequirement
+                ? "该工单已转需求"
+                : record.requirementId
+                  ? `按需求ID「${record.requirementId}」创建需求并关联`
+                  : "请先编辑该工单填写「需求ID」"
             }
             onClick={() => handleConvert(record)}
           >

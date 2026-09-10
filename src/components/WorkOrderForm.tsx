@@ -31,10 +31,14 @@ export interface WorkOrderFormValues {
   content: string;
   /** 系统 */
   system: string;
-  /** 是否转需求（本期仅记录标记，自动同步为后续环节） */
+  /** 是否转需求（为是时保存即按「需求ID」自动同步创建需求） */
   isConvertToRequirement: boolean;
   /** 工单状态 */
   status: WorkOrderStatus;
+  /** 需求ID（业务编号；「是否转需求」为是时必填） */
+  requirementId?: string;
+  /** 需求内容（转需求时同步到需求表；留空则取工单标题） */
+  requirementContent?: string;
   /** 备注（可空） */
   remark?: string;
 }
@@ -64,22 +68,42 @@ interface WorkOrderFormFields {
   system?: string;
   isConvertToRequirement?: boolean;
   status?: WorkOrderStatus;
+  requirementId?: string;
+  requirementContent?: string;
   remark?: string;
 }
 
 /**
+ * 下拉框/日期选择器宽度（px）：按选项文案实际长度取值。
+ * 表单容器统一 640px，控件不再一律撑满，避免仅 2~5 个字的下拉框被拉成整行。
+ */
+const WIDTH = {
+  /** 日期：YYYY-MM-DD */
+  date: 160,
+  /** 系统：WMS / ERP / OMS / TMS / 其他 */
+  system: 160,
+  /** 工单状态：新建 / 已处理 / 已关闭 */
+  status: 160,
+  /** 需求ID 文本：如 R-2026-001 */
+  requirementId: 220,
+} as const;
+
+/**
  * SystemSelect 在 Form.Item 中的适配壳。
  * Form.Item 会把 value/onChange 注入直接子元素，因此这里用组件转发给 SystemSelect，
- * 外层 div 撑满表单项宽度（antd Select 默认按内容宽度显示，不撑满）。
+ * 并显式给定宽度（antd Select 宽度随内容/占位文案变化，不固定会出现选中后控件变窄的跳动）。
  */
 function SystemSelectFormField(props: {
   value?: string;
   onChange?: (value: string) => void;
+  width?: number;
 }) {
   return (
-    <div style={{ width: "100%" }}>
-      <SystemSelect value={props.value} onChange={props.onChange} />
-    </div>
+    <SystemSelect
+      value={props.value}
+      onChange={props.onChange}
+      style={{ width: props.width ?? WIDTH.system }}
+    />
   );
 }
 
@@ -94,6 +118,8 @@ function buildFormInitial(
       system: "WMS",
       isConvertToRequirement: false,
       status: "新建",
+      requirementId: "",
+      requirementContent: "",
     };
   }
   return {
@@ -103,6 +129,8 @@ function buildFormInitial(
     system: initialValues?.system,
     isConvertToRequirement: initialValues?.isConvertToRequirement,
     status: initialValues?.status,
+    requirementId: initialValues?.requirementId,
+    requirementContent: initialValues?.requirementContent,
     remark: initialValues?.remark,
   };
 }
@@ -119,11 +147,16 @@ export default function WorkOrderForm({
   onCancel,
 }: WorkOrderFormProps) {
   const router = useRouter();
+  const [form] = Form.useForm<WorkOrderFormFields>();
   // 提交中状态：mock 为同步写入，仍保留 loading 位，后续接真实 API 可感知
   const [submitting, setSubmitting] = useState(false);
 
   const cardTitle = mode === "create" ? "新建工单" : "编辑工单";
   const submitText = mode === "create" ? "创建工单" : "保存修改";
+
+  // 已转需求的工单：不允许在此关闭开关（需先删除关联需求），锁定并给出说明
+  const convertedLocked =
+    mode === "edit" && initialValues?.isConvertToRequirement === true;
 
   // antd Form 的 initialValues 只在首次挂载时读取；页面每次进入都会重新挂载，使用 useMemo 无副作用
   const formInitialValues = useMemo(
@@ -151,6 +184,9 @@ export default function WorkOrderForm({
         isConvertToRequirement: values.isConvertToRequirement ?? false,
         // status 有默认值（create=新建），兜底防止为空
         status: values.status ?? "新建",
+        // 需求ID/需求内容同样显式传字符串，清空时后端才能置空
+        requirementId: values.requirementId?.trim() ?? "",
+        requirementContent: values.requirementContent?.trim() ?? "",
         // 备注始终显式传字符串（清空时传 ""）：undefined 会被 JSON 丢弃，
         // 导致编辑时「清空备注」无法下发到后端（后端仅在收到 key 时才置空）
         remark: values.remark?.trim() ?? "",
@@ -166,6 +202,7 @@ export default function WorkOrderForm({
       {/* 限制表单列宽，避免整卡宽度下输入框过长 */}
       <div style={{ maxWidth: 640 }}>
         <Form<WorkOrderFormFields>
+          form={form}
           layout="vertical"
           initialValues={formInitialValues}
           onFinish={handleFinish}
@@ -176,7 +213,7 @@ export default function WorkOrderForm({
             rules={[{ required: true, message: "请选择日期" }]}
           >
             <DatePicker
-              style={{ width: "100%" }}
+              style={{ width: WIDTH.date }}
               placeholder="请选择日期"
               allowClear={false}
             />
@@ -208,7 +245,7 @@ export default function WorkOrderForm({
             name="system"
             rules={[{ required: true, message: "请选择系统" }]}
           >
-            <SystemSelectFormField />
+            <SystemSelectFormField width={WIDTH.system} />
           </Form.Item>
 
           <Form.Item
@@ -218,7 +255,7 @@ export default function WorkOrderForm({
             extra="新建 / 已处理 / 已关闭，可随工单处理进度手动调整"
           >
             <Select
-              style={{ width: "100%" }}
+              style={{ width: WIDTH.status }}
               placeholder="请选择工单状态"
               options={STATUS_OPTIONS}
             />
@@ -228,9 +265,56 @@ export default function WorkOrderForm({
             label="是否转需求"
             name="isConvertToRequirement"
             valuePropName="checked"
-            extra="转需求时可从列表操作列一键转换（自动生成需求并置为「是」）；此处仅用于手工修正标记"
+            extra={
+              convertedLocked
+                ? `该工单已转为需求${initialValues?.requirementId ? `（${initialValues.requirementId}）` : ""}，如需取消请先在需求列表删除该需求。`
+                : "开启后保存时，将按下方「需求ID」自动同步创建需求（需求ID 必填）。"
+            }
           >
-            <Switch />
+            <Switch
+              disabled={convertedLocked}
+              onChange={(checked) => {
+                // 开启转需求时，需求内容默认取工单标题（可自行修改）
+                if (!checked) return;
+                if (!form.getFieldValue("requirementContent")) {
+                  const title = form.getFieldValue("title");
+                  if (title) form.setFieldValue("requirementContent", title);
+                }
+              }}
+            />
+          </Form.Item>
+
+          <Form.Item
+            label="需求ID"
+            name="requirementId"
+            dependencies={["isConvertToRequirement"]}
+            rules={[
+              ({ getFieldValue }) => ({
+                validator(_rule, value) {
+                  // 仅「是否转需求=是」时必填；否则可留空（可先登记编号，稍后从列表一键转需求）
+                  if (getFieldValue("isConvertToRequirement") !== true) {
+                    return Promise.resolve();
+                  }
+                  return String(value ?? "").trim()
+                    ? Promise.resolve()
+                    : Promise.reject(new Error("已开启转需求，需求ID 必填"));
+                },
+              }),
+            ]}
+            extra="业务编号，需唯一（如 R-2026-001）；填写后可从列表操作列一键转需求"
+          >
+            <Input
+              style={{ width: WIDTH.requirementId }}
+              placeholder="如 R-2026-001"
+            />
+          </Form.Item>
+
+          <Form.Item
+            label="需求内容"
+            name="requirementContent"
+            extra="转需求时同步到需求表；留空则取工单标题"
+          >
+            <Input.TextArea rows={3} placeholder="选填，描述需求背景与验收期望" />
           </Form.Item>
 
           <Form.Item label="备注" name="remark">

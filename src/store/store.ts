@@ -57,6 +57,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   addWorkOrder: async (wo) => {
     const created = await workOrderApi.create(wo);
     set((s) => ({ workOrders: [created, ...s.workOrders] }));
+    // 新建即「转需求」→ 后端已同步建需求，刷新需求列表保持一致
+    if (created.isConvertToRequirement) {
+      await get().loadRequirements(true).catch(() => undefined);
+    }
     return created;
   },
   updateWorkOrder: async (id, patch) => {
@@ -64,6 +68,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((s) => ({
       workOrders: s.workOrders.map((w) => (w.id === id ? updated : w)),
     }));
+    // 开启「是否转需求」→ 后端在同一事务内新建了需求，刷新需求列表保持一致
+    if (patch.isConvertToRequirement === true) {
+      await get().loadRequirements(true).catch(() => undefined);
+    }
     return updated;
   },
   deleteWorkOrder: async (id) => {

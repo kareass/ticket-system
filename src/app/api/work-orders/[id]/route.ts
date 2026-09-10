@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/server/db";
 import {
+  ApiFailure,
   SYSTEMS,
   WORK_ORDER_STATUSES,
   apiError,
@@ -11,6 +12,7 @@ import {
   toDayUtc,
   toWorkOrderJson,
 } from "@/lib/server/helpers";
+import { syncRequirementForWorkOrder } from "@/lib/server/work-order-sync";
 
 export const runtime = "nodejs";
 
@@ -27,8 +29,12 @@ export async function GET(_req: Request, { params }: Ctx) {
 
 /**
  * PUT /api/work-orders/:id
- * 更新工单。允许字段：date / title / content / system / isConvertToRequirement / status / remark。
+ * 更新工单。允许字段：date / title / content / system / isConvertToRequirement / status / remark
+ * / requirementId / requirementContent。
  * 校验规则同新建；仅校验传入的字段。不存在 → 404。
+ * - isConvertToRequirement 置 true → 事务内按工单的 requirementId 自动同步需求
+ *   （需求ID 为空 → 400；已被占用 → 409，工单更新一并回滚）；
+ * - 已关联需求的工单不允许关闭该开关 → 400（保持一对一状态一致，如需取消请先删除需求）。
  */
 export async function PUT(req: Request, { params }: Ctx) {
   const existing = await prisma.workOrder.findUnique({
@@ -80,15 +86,49 @@ export async function PUT(req: Request, { params }: Ctx) {
   if (body.remark !== undefined) {
     data.remark = asTrimmed(body.remark) || null;
   }
+  if (body.requirementId !== undefined) {
+    data.requirementId = asTrimmed(body.requirementId) || null;
+  }
+  if (body.requirementContent !== undefined) {
+    data.requirementContent = asTrimmed(body.requirementContent) || null;
+  }
 
   if (errors.length) return apiError(400, "参数校验失败。", errors);
   if (!Object.keys(data).length) return apiError(400, "未提供任何可更新字段。");
 
-  const wo = await prisma.workOrder.update({
-    where: { id: params.id },
-    data,
-  });
-  return NextResponse.json(toWorkOrderJson(wo));
+  // 关闭「是否转需求」时若已存在关联需求 → 拒绝，避免工单与需求状态脱节
+  if (data.isConvertToRequirement === false) {
+    const linked = await prisma.requirement.findUnique({
+      where: { workOrderId: params.id },
+    });
+    if (linked) {
+      return apiError(
+        400,
+        `该工单已关联需求（${linked.requirementId}），不能关闭「是否转需求」。如需取消请先删除关联需求。`,
+      );
+    }
+  }
+
+  try {
+    const wo = await prisma.$transaction(async (tx) => {
+      const updated = await tx.workOrder.update({
+        where: { id: params.id },
+        data,
+      });
+      // 转需求 → 同步创建/改名需求（同事务，任一失败整体回滚）
+      if (updated.isConvertToRequirement) {
+        const sync = await syncRequirementForWorkOrder(updated, tx);
+        if (!sync.ok) throw new ApiFailure(sync.status, sync.error);
+      }
+      return updated;
+    });
+    return NextResponse.json(toWorkOrderJson(wo));
+  } catch (err) {
+    if (err instanceof ApiFailure) {
+      return apiError(err.status, err.message, err.details);
+    }
+    throw err;
+  }
 }
 
 /**

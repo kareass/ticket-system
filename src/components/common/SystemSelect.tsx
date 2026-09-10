@@ -1,5 +1,6 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { Select } from "antd";
 import { SYSTEM_OPTIONS } from "@/types";
 
@@ -16,6 +17,8 @@ interface SystemSelectProps {
   disabled?: boolean;
   /** 未选中时的占位提示 */
   placeholder?: string;
+  /** 自定义样式（表单内一般用 style={{ width: 160 }} 固定宽度，避免撑满整行） */
+  style?: CSSProperties;
 }
 
 /**
@@ -29,6 +32,7 @@ export default function SystemSelect({
   onChange,
   disabled,
   placeholder,
+  style,
 }: SystemSelectProps) {
   return (
     <Select
@@ -37,6 +41,7 @@ export default function SystemSelect({
       disabled={disabled}
       placeholder={placeholder ?? "请选择系统"}
       options={systemSelectOptions}
+      style={style}
     />
   );
 }

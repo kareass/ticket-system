@@ -104,18 +104,36 @@ function calcDevDaysFromFields(
 /**
  * SystemSelect 在 Form.Item 中的适配壳。
  * Form.Item 会把 value/onChange 注入直接子元素，因此这里用组件转发给 SystemSelect，
- * 外层 div 撑满表单项宽度（antd Select 默认按内容宽度显示，不撑满）。
+ * 并显式给定宽度（antd Select 宽度随内容/占位文案变化，不固定会出现选中后控件变窄的跳动）。
  */
 function SystemSelectFormField(props: {
   value?: string;
   onChange?: (value: string) => void;
+  width?: number;
 }) {
   return (
-    <div style={{ width: "100%" }}>
-      <SystemSelect value={props.value} onChange={props.onChange} />
-    </div>
+    <SystemSelect
+      value={props.value}
+      onChange={props.onChange}
+      style={{ width: props.width ?? WIDTH.system }}
+    />
   );
 }
+
+/**
+ * 下拉框/日期选择器宽度（px）：按选项文案实际长度取值。
+ * 表单容器统一 640px，控件不再一律撑满，避免仅 2~5 个字的下拉框被拉成整行。
+ */
+const WIDTH = {
+  /** 日期 / 发版时间：YYYY-MM-DD */
+  date: 160,
+  /** 系统：WMS / ERP / OMS / TMS / 其他 */
+  system: 160,
+  /** 当前节点：方案中 / 开发中 / 测试中 / 已合并 / 已发布 */
+  currentNode: 180,
+  /** 是否加急：是 / 否 */
+  isUrgent: 120,
+} as const;
 
 /** 组装 antd Form 的 initialValues：date/releaseDate 字符串转 dayjs；创建模式默认今天 + WMS + 方案中 */
 function buildFormInitial(
@@ -243,7 +261,7 @@ export default function RequirementForm({
             rules={[{ required: true, message: "请选择日期" }]}
           >
             <DatePicker
-              style={{ width: "100%" }}
+              style={{ width: WIDTH.date }}
               placeholder="请选择日期"
               allowClear={false}
             />
@@ -289,7 +307,7 @@ export default function RequirementForm({
             name="system"
             rules={[{ required: true, message: "请选择系统" }]}
           >
-            <SystemSelectFormField />
+            <SystemSelectFormField width={WIDTH.system} />
           </Form.Item>
 
           <Form.Item
@@ -298,7 +316,7 @@ export default function RequirementForm({
             rules={[{ required: true, message: "请选择当前节点" }]}
           >
             <Select
-              style={{ width: "100%" }}
+              style={{ width: WIDTH.currentNode }}
               placeholder="请选择当前节点"
               options={nodeOptions}
             />
@@ -310,7 +328,7 @@ export default function RequirementForm({
             rules={[{ required: true, message: "请选择是否加急" }]}
           >
             <Select
-              style={{ width: "100%" }}
+              style={{ width: WIDTH.isUrgent }}
               placeholder="请选择是否加急"
               options={urgentOptions}
             />
@@ -334,7 +352,7 @@ export default function RequirementForm({
               rules={[{ required: true, message: "请选择发版时间" }]}
             >
               <DatePicker
-                style={{ width: "100%" }}
+                style={{ width: WIDTH.date }}
                 placeholder="请选择发版时间"
                 allowClear={false}
               />

@@ -37,7 +37,9 @@ export async function GET(_req: Request, { params }: Ctx) {
  * - isReleased 置 true 而未给 releaseDate → 自动按今天补齐（与列表内联开启一致）；
  *   isReleased 置 false → 清空 releaseDate。
  * - developmentDays 按更新后的有效值由服务端重算。
- * - requirementId 可改但须唯一（撞号 → 409）；workOrderId 不可经此修改（转需求走专用接口）。
+ * - requirementId 可改但须唯一（撞号 → 409）；若该需求来自工单，事务内一并把来源工单的
+ *   requirementId 同步为同一编号，保持工单/需求两侧编号一致；
+ *   workOrderId 不可经此修改（转需求走专用接口）。
  */
 export async function PUT(req: Request, { params }: Ctx) {
   const existing = await prisma.requirement.findUnique({
@@ -50,6 +52,8 @@ export async function PUT(req: Request, { params }: Ctx) {
 
   const errors: string[] = [];
   const data: Prisma.RequirementUncheckedUpdateInput = {};
+  /** 需求ID 本次是否被改动（用于同步来源工单侧的编号） */
+  let newRequirementId: string | undefined;
 
   let dateStr = existing.date.toISOString().slice(0, 10);
   let isReleased = existing.isReleased;
@@ -69,7 +73,10 @@ export async function PUT(req: Request, { params }: Ctx) {
   if (body.requirementId !== undefined) {
     const requirementId = asTrimmed(body.requirementId);
     if (!requirementId) errors.push("requirementId 不能为空。");
-    else data.requirementId = requirementId;
+    else {
+      data.requirementId = requirementId;
+      if (requirementId !== existing.requirementId) newRequirementId = requirementId;
+    }
   }
   if (body.title !== undefined) {
     data.title = asTrimmed(body.title) || null;
@@ -142,9 +149,19 @@ export async function PUT(req: Request, { params }: Ctx) {
   );
 
   try {
-    const updated = await prisma.requirement.update({
-      where: { id: params.id },
-      data,
+    const updated = await prisma.$transaction(async (tx) => {
+      const row = await tx.requirement.update({
+        where: { id: params.id },
+        data,
+      });
+      // 需求ID 改名且该需求来自工单 → 同步工单侧编号，避免两侧不一致
+      if (newRequirementId && existing.workOrderId) {
+        await tx.workOrder.update({
+          where: { id: existing.workOrderId },
+          data: { requirementId: newRequirementId },
+        });
+      }
+      return row;
     });
     return NextResponse.json(toRequirementJson(updated));
   } catch (err) {
@@ -158,7 +175,8 @@ export async function PUT(req: Request, { params }: Ctx) {
 /**
  * DELETE /api/requirements/:id
  * 删除需求。若该需求由工单转化（存在 workOrderId），事务内一并把来源工单的
- * isConvertToRequirement 复位为 false，保持一对一状态一致。删除成功返回 204。
+ * isConvertToRequirement 复位为 false，保持一对一状态一致
+ * （保留工单上的需求ID/需求内容，便于按原编号再次转需求）。删除成功返回 204。
  */
 export async function DELETE(_req: Request, { params }: Ctx) {
   const existing = await prisma.requirement.findUnique({

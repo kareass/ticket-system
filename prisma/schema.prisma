@@ -26,6 +26,10 @@ model WorkOrder {
   content              String // 工单内容（必填）
   system               String   @default("WMS") // 系统（必填，下拉框，默认 WMS）
   isConvertToRequirement Boolean @default(false) // 是否转需求（布尔值）
+  // 需求ID / 需求内容：对应设计方案「工单表」字段。
+  // 「是否转需求」为是时二者启用，需求ID 必填，保存工单时据此自动同步创建需求
+  requirementId        String? // 需求ID（业务编号，需唯一；留空则不允许转需求）
+  requirementContent   String? // 需求内容（同步自工单标题，可手工修改）
   remark               String? // 备注
   status               String   @default("新建") // 工单状态（新建/已处理/已关闭，预留扩展）
 

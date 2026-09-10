@@ -25,6 +25,9 @@ async function main() {
       content: "出库单打印模板需要支持自定义纸张大小，并增加批次号字段展示。",
       system: "WMS",
       isConvertToRequirement: true,
+      // 需求ID 必填（工单转需求的依据）；需求内容留空时按设计文档取工单标题
+      requirementId: "R-2026-001",
+      requirementContent: "出库单打印模板支持自定义纸张大小，增加批次号展示。",
       remark: "业务提出，已确认转为需求跟进。",
       status: "新建",
     },
@@ -47,6 +50,8 @@ async function main() {
       content: "运单在途节点是否需要短信提醒，先与承运方确认需求范围。",
       system: "TMS",
       isConvertToRequirement: false,
+      // 尚未转需求，但可先登记需求ID（列表「关联需求」列会以灰标提示"已填写未转需求"）
+      requirementId: "R-2026-005",
       remark: "待确认，暂不处理。",
       status: "新建",
     },
