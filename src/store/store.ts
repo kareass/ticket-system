@@ -15,7 +15,9 @@ interface AppState {
   // 工单
   workOrders: WorkOrder[];
   workOrdersLoading: boolean;
-  loadWorkOrders: () => Promise<WorkOrder[]>;
+  /** 是否已完成过一次加载（列表页据此避免来回切换时重复请求；force=true 可强制刷新） */
+  workOrdersLoaded: boolean;
+  loadWorkOrders: (force?: boolean) => Promise<WorkOrder[]>;
   addWorkOrder: (wo: Partial<WorkOrder>) => Promise<WorkOrder>;
   updateWorkOrder: (id: string, patch: Partial<WorkOrder>) => Promise<WorkOrder>;
   deleteWorkOrder: (id: string) => Promise<void>;
@@ -25,7 +27,8 @@ interface AppState {
   // 需求
   requirements: Requirement[];
   requirementsLoading: boolean;
-  loadRequirements: () => Promise<Requirement[]>;
+  requirementsLoaded: boolean;
+  loadRequirements: (force?: boolean) => Promise<Requirement[]>;
   addRequirement: (req: Partial<Requirement>) => Promise<Requirement>;
   updateRequirement: (
     id: string,
@@ -34,15 +37,18 @@ interface AppState {
   deleteRequirement: (id: string) => Promise<void>;
 }
 
-export const useAppStore = create<AppState>((set) => ({
+export const useAppStore = create<AppState>((set, get) => ({
   // ---------- 工单 ----------
   workOrders: [],
   workOrdersLoading: false,
-  loadWorkOrders: async () => {
+  workOrdersLoaded: false,
+  loadWorkOrders: async (force = false) => {
+    // 已加载且非强制 → 直接用缓存，避免页面来回切换时重复请求
+    if (get().workOrdersLoaded && !force) return get().workOrders;
     set({ workOrdersLoading: true });
     try {
       const list = await workOrderApi.list();
-      set({ workOrders: list });
+      set({ workOrders: list, workOrdersLoaded: true });
       return list;
     } finally {
       set({ workOrdersLoading: false });
@@ -79,11 +85,13 @@ export const useAppStore = create<AppState>((set) => ({
   // ---------- 需求 ----------
   requirements: [],
   requirementsLoading: false,
-  loadRequirements: async () => {
+  requirementsLoaded: false,
+  loadRequirements: async (force = false) => {
+    if (get().requirementsLoaded && !force) return get().requirements;
     set({ requirementsLoading: true });
     try {
       const list = await requirementApi.list();
-      set({ requirements: list });
+      set({ requirements: list, requirementsLoaded: true });
       return list;
     } finally {
       set({ requirementsLoading: false });

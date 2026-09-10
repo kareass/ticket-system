@@ -125,15 +125,16 @@ export async function POST(req: Request) {
   const data: Prisma.RequirementUncheckedCreateInput = {
     requirementId: requirementId as string,
     date: toDayUtc(dateStr) as Date,
-    ...(title !== undefined ? { title } : {}),
-    ...(content !== undefined ? { content } : {}),
+    // 空串（含前端「清空」语义）统一落 null，避免库中出现空字符串
+    ...(title ? { title } : {}),
+    ...(content ? { content } : {}),
     system,
     currentNode,
     isUrgent: isUrgent ?? false,
     isReleased: relEnabled,
     ...(relEnabled ? { releaseDate: toDayUtc(relDateStr as string) as Date } : {}),
     developmentDays,
-    ...(remark !== undefined ? { remark } : {}),
+    ...(remark ? { remark } : {}),
     ...(workOrderId ? { workOrderId } : {}),
   };
 

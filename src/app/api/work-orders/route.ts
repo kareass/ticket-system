@@ -88,7 +88,8 @@ export async function POST(req: Request) {
       system,
       status,
       isConvertToRequirement: isConvertToRequirement ?? false,
-      ...(remark !== undefined ? { remark } : {}),
+      // 空串（含前端「清空」语义）统一落 null，避免库中出现空字符串
+      ...(remark ? { remark } : {}),
     },
   });
 

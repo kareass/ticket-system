@@ -201,8 +201,10 @@ export default function RequirementForm({
         // date 必填（规则兜底），此处仅在理论上为空时退回今天
         date: values.date ? values.date.format("YYYY-MM-DD") : today(),
         requirementId: (values.requirementId ?? "").trim(),
-        title: values.title?.trim() || undefined,
-        content: values.content?.trim() || undefined,
+        // 标题/内容始终显式传字符串（清空时传 ""）：undefined 会被 JSON 丢弃，
+        // 导致编辑时「清空字段」无法下发到后端（后端仅在收到 key 时才置空）
+        title: values.title?.trim() ?? "",
+        content: values.content?.trim() ?? "",
         system: values.system ?? "",
         currentNode: values.currentNode ?? "方案中",
         isUrgent: values.isUrgent ?? false,
@@ -212,7 +214,7 @@ export default function RequirementForm({
           values.isReleased && values.releaseDate
             ? values.releaseDate.format("YYYY-MM-DD")
             : undefined,
-        remark: values.remark?.trim() || undefined,
+        remark: values.remark?.trim() ?? "",
         developmentDays: calcDevDaysFromFields(
           values.date,
           values.isReleased,

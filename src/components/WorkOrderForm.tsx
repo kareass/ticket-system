@@ -151,7 +151,9 @@ export default function WorkOrderForm({
         isConvertToRequirement: values.isConvertToRequirement ?? false,
         // status 有默认值（create=新建），兜底防止为空
         status: values.status ?? "新建",
-        remark: values.remark?.trim(),
+        // 备注始终显式传字符串（清空时传 ""）：undefined 会被 JSON 丢弃，
+        // 导致编辑时「清空备注」无法下发到后端（后端仅在收到 key 时才置空）
+        remark: values.remark?.trim() ?? "",
       };
       await onSubmit(payload);
     } finally {

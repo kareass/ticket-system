@@ -14,7 +14,7 @@ import {
   message,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
+import { PlusOutlined, ReloadOutlined, SearchOutlined } from "@ant-design/icons";
 import ProTable from "@/components/common/ProTable";
 import EditableChip from "@/components/common/EditableChip";
 import { useRowDrafts } from "@/lib/useRowDrafts";
@@ -297,6 +297,18 @@ export default function WorkOrderListPage() {
           ) : null}
         </Space>
         <Space wrap>
+          <Button
+            icon={<ReloadOutlined />}
+            loading={loading}
+            onClick={() => {
+              void loadWorkOrders(true).catch((e) =>
+                message.error(toErrorMessage(e)),
+              );
+              void loadRequirements(true).catch(() => undefined);
+            }}
+          >
+            刷新
+          </Button>
           <Input
             allowClear
             placeholder="按标题搜索"

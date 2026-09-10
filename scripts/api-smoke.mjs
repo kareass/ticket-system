@@ -110,6 +110,12 @@ console.log("== 工单 CRUD ==");
   const r = await req("PUT", `/api/work-orders/${woA}`, { status: "乱写" });
   ok(r.status === 400, "更新非法状态 → 400", `status=${r.status}`);
 }
+// 7b. 回归：清空可选字段（备注）需真正下发（前端传空串 → 后端置空）
+{
+  await req("PUT", `/api/work-orders/${woA}`, { remark: "临时备注" });
+  const r = await req("PUT", `/api/work-orders/${woA}`, { remark: "" });
+  ok(r.status === 200 && r.data.remark === undefined, "备注清空下发生效（回归）", String(r.data.remark));
+}
 // 8. 第二张未转需求工单（供 convert 使用）
 {
   const r = await req("POST", "/api/work-orders", {
@@ -196,6 +202,13 @@ const RID_B = `R-${new Date().getFullYear()}-SM${TAG}b`;
   const r = await req("PUT", `/api/requirements/${reqLink}`, { isReleased: false });
   ok(r.status === 200, "关闭发版 → 200");
   ok(r.data.releaseDate === undefined || r.data.releaseDate === null, "releaseDate 已清空", String(r.data.releaseDate));
+}
+
+// 17b. 回归：清空需求标题需真正下发
+{
+  await req("PUT", `/api/requirements/${reqLink}`, { title: "临时标题" });
+  const r = await req("PUT", `/api/requirements/${reqLink}`, { title: "" });
+  ok(r.status === 200 && r.data.title === undefined, "标题清空下发生效（回归）", String(r.data.title));
 }
 
 console.log("== 工单转需求 convert ==");

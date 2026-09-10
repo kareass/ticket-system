@@ -14,7 +14,7 @@ import {
   Tag,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { PlusOutlined, SearchOutlined } from "@ant-design/icons";
+import { PlusOutlined, ReloadOutlined, SearchOutlined } from "@ant-design/icons";
 import type { Requirement, RequirementNode } from "@/types";
 import { NODE_OPTIONS, SYSTEM_OPTIONS } from "@/types";
 import { useAppStore } from "@/store/store";
@@ -291,9 +291,9 @@ export default function RequirementListPage() {
               drafts.discard(record.id);
               try {
                 await deleteRequirement(record.id);
-                // 若该需求来自工单，后端已复位工单的转需求标记 → 刷新工单列表保持一致
+                // 若该需求来自工单，后端已复位工单的转需求标记 → 强制刷新工单列表保持一致
                 if (record.workOrderId) {
-                  await loadWorkOrders();
+                  await loadWorkOrders(true);
                 }
                 message.success("需求已删除");
               } catch (e) {
@@ -342,6 +342,18 @@ export default function RequirementListPage() {
           ) : null}
         </Space>
         <Space wrap>
+          <Button
+            icon={<ReloadOutlined />}
+            loading={loading}
+            onClick={() => {
+              void loadRequirements(true).catch((e) =>
+                message.error(toErrorMessage(e)),
+              );
+              void loadWorkOrders(true).catch(() => undefined);
+            }}
+          >
+            刷新
+          </Button>
           <Input
             allowClear
             placeholder="按需求ID/标题搜索"

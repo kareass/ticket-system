@@ -83,7 +83,8 @@ export default function EditRequirementPage() {
     return (
       <Card title="编辑需求">
         <div style={{ padding: "48px 0", textAlign: "center" }}>
-          <Spin tip="加载需求中…" />
+          <Spin size="large" />
+          <div style={{ marginTop: 12, color: "#999" }}>加载需求中…</div>
         </div>
       </Card>
     );

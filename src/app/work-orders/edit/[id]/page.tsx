@@ -79,7 +79,8 @@ export default function EditWorkOrderPage() {
     return (
       <Card title="编辑工单">
         <div style={{ padding: "48px 0", textAlign: "center" }}>
-          <Spin tip="加载工单中…" />
+          <Spin size="large" />
+          <div style={{ marginTop: 12, color: "#999" }}>加载工单中…</div>
         </div>
       </Card>
     );
