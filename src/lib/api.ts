@@ -26,14 +26,19 @@ export const workOrderApi = {
   remove: async (id: string): Promise<void> => {
     await http.delete(`/work-orders/${id}`);
   },
-  /** 工单转需求（一对一）：返回新建需求 + 已置标记的工单 */
+  /**
+   * 工单转需求（一对一）：返回新建需求 + 已置标记的工单。
+   * requirementId 为本次转出的需求ID（列表「转需求」弹框中填写）；
+   * 不传时后端退回工单上已登记的编号。
+   */
   convert: async (
     id: string,
+    requirementId?: string,
   ): Promise<{ requirement: Requirement; workOrder: WorkOrder }> =>
     (
       await http.post<{ requirement: Requirement; workOrder: WorkOrder }>(
         `/work-orders/${id}/convert`,
-        {},
+        requirementId ? { requirementId } : {},
       )
     ).data,
 };

@@ -7,6 +7,7 @@
  *       SMOKE_BASE=http://localhost:3000 node scripts/api-smoke.mjs
  *
  * 覆盖：工单 CRUD（含需求ID/需求内容） / 工单开启「是否转需求」自动同步建需求（需求ID必填、
+ *        convert 入参带需求ID（列表弹框路径）与未传入参退回工单登记编号两条路径、
  *       改名同步、撞号409、已关联不可关闭） / 需求 CRUD（唯一409、发版联动、开发时长重算、
  *       来源工单链接） / 转需求 convert（按工单填写的需求ID） / 校验400 / 不存在404 /
  *       有关联需求的工单删除保护409 / 删除需求复位来源工单标记 / 关联需求删除后工单可删。
@@ -57,7 +58,7 @@ const isDateStr = (v) => typeof v === "string" && CAL.test(v);
 
 const WO_DATE = "2026-09-05";
 const NO_DATE = (() => new Date().toISOString().slice(0, 10))();
-let woA, woB, woC, woD, reqLink, reqConv, reqAuto, reqStandalone;
+let woA, woB, woC, woD, woE, reqLink, reqConv, reqConvD, reqAuto, reqStandalone;
 
 console.log("== 工单 CRUD ==");
 
@@ -295,7 +296,7 @@ console.log("== 需求链接来源工单 ==");
 }
 
 console.log("== 工单转需求 convert ==");
-// 22. 未填需求ID 的工单 convert → 400
+// 22. 缺需求ID → 400（不填不能完成转需求）：工单未登记 + 入参空格两种都拦
 {
   const c = await req("POST", "/api/work-orders", {
     date: WO_DATE,
@@ -303,10 +304,30 @@ console.log("== 工单转需求 convert ==");
     content: "冒烟：convert 前未填需求ID",
   });
   woD = c.data && c.data.id;
-  const r = await req("POST", `/api/work-orders/${woD}/convert`, {});
-  ok(r.status === 400, "未填需求ID 时 convert → 400", `status=${r.status}`);
+
+  const r1 = await req("POST", `/api/work-orders/${woD}/convert`, {});
+  ok(r1.status === 400, "工单未登记需求ID 且入参未传 → 400", `status=${r1.status}`);
+
+  const r2 = await req("POST", `/api/work-orders/${woD}/convert`, { requirementId: "   " });
+  ok(r2.status === 400, "入参需求ID 为空白 → 400", `status=${r2.status}`);
+
+  const after = await req("GET", `/api/work-orders/${woD}`);
+  ok(after.data.requirementId == null, "被拒后不产生半成品（工单需求ID 仍为空）", String(after.data.requirementId));
+  ok(after.data.isConvertToRequirement === false, "被拒后工单转需求标记仍为 false");
 }
-// 23. 先填需求ID 再 convert → 201，编号即工单填写的需求ID
+// 22b. 弹框路径：入参带需求ID → 201，编号取入参并回写工单
+{
+  const RID_MODAL = `R-${YEAR}-CV2${TAG}`;
+  const r = await req("POST", `/api/work-orders/${woD}/convert`, { requirementId: RID_MODAL });
+  ok(r.status === 201, "convert 入参带需求ID → 201", `status=${r.status}`);
+  reqConvD = r.data && r.data.requirement && r.data.requirement.id;
+  ok(r.data.requirement.requirementId === RID_MODAL, "需求编号 = 入参需求ID", String(r.data.requirement.requirementId));
+  ok(r.data.workOrder.requirementId === RID_MODAL, "入参需求ID 回写到工单", String(r.data.workOrder.requirementId));
+  ok(r.data.workOrder.isConvertToRequirement === true, "工单置转需求标记 true（入参路径）");
+  ok(r.data.requirement.title === `WO-D ${TAG}`, "需求标题同步自工单标题（入参路径）");
+  ok(r.data.requirement.workOrderId === woD, "需求回指来源工单（入参路径）");
+}
+// 23. 兼容路径：入参未传时退回工单已登记的需求ID
 {
   const RID_CONV = `R-${YEAR}-CV${TAG}`;
   const c = await req("POST", "/api/work-orders", {
@@ -316,13 +337,13 @@ console.log("== 工单转需求 convert ==");
   });
   woB = c.data && c.data.id;
   const set = await req("PUT", `/api/work-orders/${woB}`, { requirementId: RID_CONV });
-  ok(set.status === 200 && set.data.requirementId === RID_CONV, "工单填写需求ID → 200");
+  ok(set.status === 200 && set.data.requirementId === RID_CONV, "工单登记需求ID → 200");
 
   const r = await req("POST", `/api/work-orders/${woB}/convert`, {});
-  ok(r.status === 201, "convert → 201", `status=${r.status}`);
+  ok(r.status === 201, "convert 未传入参 → 201", `status=${r.status}`);
   reqConv = r.data && r.data.requirement && r.data.requirement.id;
   ok(!!reqConv, "convert 返回新需求");
-  ok(r.data.requirement.requirementId === RID_CONV, "需求编号 = 工单填写的需求ID", String(r.data.requirement.requirementId));
+  ok(r.data.requirement.requirementId === RID_CONV, "需求编号 = 工单登记的需求ID", String(r.data.requirement.requirementId));
   ok(r.data.requirement.title === `WO-B ${TAG}`, "需求标题同步自工单标题");
   ok(r.data.requirement.currentNode === "方案中", "转换需求节点默认 方案中");
   ok(r.data.requirement.workOrderId === woB, "需求回指来源工单");
@@ -332,6 +353,20 @@ console.log("== 工单转需求 convert ==");
 {
   const r = await req("POST", `/api/work-orders/${woB}/convert`, {});
   ok(r.status === 409, "重复 convert → 409", `status=${r.status}`);
+}
+// 24b. 弹框填了已被占用的编号 → 409（且不产生需求、工单标记不动）
+{
+  const RID_CONV = `R-${YEAR}-CV${TAG}`;
+  const c = await req("POST", "/api/work-orders", {
+    date: WO_DATE,
+    title: `WO-E ${TAG}`,
+    content: "冒烟：convert 撞号",
+  });
+  woE = c.data && c.data.id;
+  const r = await req("POST", `/api/work-orders/${woE}/convert`, { requirementId: RID_CONV });
+  ok(r.status === 409, "入参需求ID 已被占用 → 409", `status=${r.status}`);
+  const after = await req("GET", `/api/work-orders/${woE}`);
+  ok(after.data.isConvertToRequirement === false, "撞号被拒后工单标记仍为 false");
 }
 // 25. convert 不存在工单 → 404
 {
@@ -385,8 +420,13 @@ console.log("== 删除与一致性 ==");
   ok(r2.status === 204, "清理自动同步需求 → 204（不留残留）", `status=${r2.status}`);
   const r3 = await req("DELETE", `/api/work-orders/${woC}`);
   ok(r3.status === 204, "清理工单C → 204", `status=${r3.status}`);
-  const r4 = await req("DELETE", `/api/work-orders/${woD}`);
-  ok(r4.status === 204, "清理工单D → 204", `status=${r4.status}`);
+  // 工单D 已按弹框路径转出需求，须先删需求再删工单
+  const r4 = await req("DELETE", `/api/requirements/${reqConvD}`);
+  ok(r4.status === 204, "清理弹框路径转出的需求 → 204", `status=${r4.status}`);
+  const r5 = await req("DELETE", `/api/work-orders/${woD}`);
+  ok(r5.status === 204, "清理工单D → 204", `status=${r5.status}`);
+  const r6 = await req("DELETE", `/api/work-orders/${woE}`);
+  ok(r6.status === 204, "清理工单E → 204", `status=${r6.status}`);
 }
 
 console.log(failures === 0 ? "\n全部用例通过 ✅" : `\n${failures} 项失败 ❌`);

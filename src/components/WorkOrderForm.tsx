@@ -164,6 +164,14 @@ export default function WorkOrderForm({
     [mode, initialValues],
   );
 
+  // 「需求ID / 需求内容」仅服务于转需求：开关未开启时不可填写（设计方案「工单表」口径：
+  // requirementId 仅当 isConvertToRequirement=true 时填充）。
+  // useWatch 首次渲染可能尚未接上表单，回退到初值，避免编辑页出现一帧「误禁用」。
+  // 注意：删除关联需求后工单会保留原编号且开关复位为否，此时字段只读展示，值不丢失。
+  const watchedConvert = Form.useWatch("isConvertToRequirement", form);
+  const convertOn =
+    (watchedConvert ?? formInitialValues.isConvertToRequirement) === true;
+
   const handleCancel = () => {
     if (onCancel) {
       onCancel();
@@ -268,18 +276,23 @@ export default function WorkOrderForm({
             extra={
               convertedLocked
                 ? `该工单已转为需求${initialValues?.requirementId ? `（${initialValues.requirementId}）` : ""}，如需取消请先在需求列表删除该需求。`
-                : "开启后保存时，将按下方「需求ID」自动同步创建需求（需求ID 必填）。"
+                : "开启后下方「需求ID」才可填写，保存时按其自动同步创建需求。若只想在列表点「转需求」，可不开此开关。"
             }
           >
             <Switch
               disabled={convertedLocked}
               onChange={(checked) => {
-                // 开启转需求时，需求内容默认取工单标题（可自行修改）
-                if (!checked) return;
-                if (!form.getFieldValue("requirementContent")) {
-                  const title = form.getFieldValue("title");
-                  if (title) form.setFieldValue("requirementContent", title);
+                if (checked) {
+                  // 开启转需求时，需求内容默认取工单标题（可自行修改）
+                  if (!form.getFieldValue("requirementContent")) {
+                    const title = form.getFieldValue("title");
+                    if (title) form.setFieldValue("requirementContent", title);
+                  }
+                  return;
                 }
+                // 关闭转需求时一并清空「需求ID / 需求内容」：这两个字段仅在转需求时有意义，
+                // 否则会留下一个指向不存在需求的编号（要转需求可在列表点「转需求」填编号）
+                form.setFieldsValue({ requirementId: "", requirementContent: "" });
               }}
             />
           </Form.Item>
@@ -291,7 +304,7 @@ export default function WorkOrderForm({
             rules={[
               ({ getFieldValue }) => ({
                 validator(_rule, value) {
-                  // 仅「是否转需求=是」时必填；否则可留空（可先登记编号，稍后从列表一键转需求）
+                  // 仅「是否转需求=是」时必填（未开启时字段禁用，值恒为空）
                   if (getFieldValue("isConvertToRequirement") !== true) {
                     return Promise.resolve();
                   }
@@ -301,11 +314,16 @@ export default function WorkOrderForm({
                 },
               }),
             ]}
-            extra="业务编号，需唯一（如 R-2026-001）；填写后可从列表操作列一键转需求"
+            extra={
+              convertOn
+                ? "业务编号，需唯一（如 R-2026-001）；保存工单即按此编号创建需求"
+                : "需先开启上方「是否转需求」；或留空，到列表操作列点「转需求」时再填写"
+            }
           >
             <Input
               style={{ width: WIDTH.requirementId }}
-              placeholder="如 R-2026-001"
+              disabled={!convertOn}
+              placeholder={convertOn ? "如 R-2026-001" : "请先开启「是否转需求」"}
             />
           </Form.Item>
 
@@ -314,7 +332,13 @@ export default function WorkOrderForm({
             name="requirementContent"
             extra="转需求时同步到需求表；留空则取工单标题"
           >
-            <Input.TextArea rows={3} placeholder="选填，描述需求背景与验收期望" />
+            <Input.TextArea
+              rows={3}
+              disabled={!convertOn}
+              placeholder={
+                convertOn ? "选填，描述需求背景与验收期望" : "请先开启「是否转需求」"
+              }
+            />
           </Form.Item>
 
           <Form.Item label="备注" name="remark">

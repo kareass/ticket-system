@@ -38,9 +38,10 @@ const SYSTEM_COLORS: Record<string, string> = {
  * 工单列表页（环节5：数据源为真实后端 API）
  * - 挂载时拉取工单 + 需求（后者用于「关联需求」列反查）
  * - 列表内可改「系统 / 状态」→ 暂存草稿，点「提交」并确认后才落库
- * - 「是否转需求」只读展示：转需求由「编辑工单填写需求ID（可开启开关保存即同步）」或
+ * - 「是否转需求」只读展示：转需求由「编辑工单开启开关保存即同步」或
  *   操作列「转需求」按钮驱动，避免在未填需求ID 的情况下误切标志
- * - 操作列提供「转需求」：按工单填写的需求ID 调后端一对一转换接口并置标记
+ * - 操作列提供「转需求」：弹框内填写「需求ID」（工单已登记则回填），
+ *   确认后调后端一对一转换接口建需求并置工单标记
  * - 所有失败（校验/冲突/网络）统一用 toErrorMessage 友好提示
  */
 export default function WorkOrderListPage() {
@@ -59,6 +60,11 @@ export default function WorkOrderListPage() {
   // 标题搜索关键字 / 系统筛选值（受控，allowClear 清空后为 undefined 表示不过滤）
   const [keyword, setKeyword] = useState("");
   const [system, setSystem] = useState<string | undefined>(undefined);
+
+  // 转需求弹框：目标工单 + 待填需求ID + 提交中
+  const [convertTarget, setConvertTarget] = useState<WorkOrder | null>(null);
+  const [convertId, setConvertId] = useState("");
+  const [converting, setConverting] = useState(false);
 
   // 初次挂载拉取数据（需求列表用于反查「关联需求」）
   useEffect(() => {
@@ -100,27 +106,29 @@ export default function WorkOrderListPage() {
     });
   };
 
-  // 转需求：确认后调用后端一对一转换（按工单填写的需求ID 建需求 + 置工单标记）
-  const handleConvert = (record: WorkOrder) => {
-    // 需求ID 必填：未填写时先引导去编辑工单填写，不发请求
-    if (!record.requirementId) {
-      message.warning("该工单尚未填写「需求ID」，请先点「编辑」填写需求ID 后再转需求。");
+  // 转需求弹框：需求ID 直接在弹框内填写（工单上已登记则回填，可改），无需先去编辑页
+  const openConvert = (record: WorkOrder) => {
+    setConvertTarget(record);
+    setConvertId(record.requirementId ?? "");
+  };
+
+  const handleConvertOk = async () => {
+    if (!convertTarget) return;
+    const rid = convertId.trim();
+    if (!rid) {
+      message.warning("请填写「需求ID」后再转需求。");
       return;
     }
-    Modal.confirm({
-      title: "确认将该工单转为需求？",
-      content: `将按需求ID「${record.requirementId}」创建需求（日期/标题/内容/系统同步自该工单），并标记该工单已转需求。`,
-      okText: "转为需求",
-      cancelText: "取消",
-      onOk: async () => {
-        try {
-          const req = await convertWorkOrder(record.id);
-          message.success(`已转为需求 ${req.requirementId}`);
-        } catch (e) {
-          message.error(toErrorMessage(e));
-        }
-      },
-    });
+    setConverting(true);
+    try {
+      const req = await convertWorkOrder(convertTarget.id, rid);
+      message.success(`已转为需求 ${req.requirementId}`);
+      setConvertTarget(null);
+    } catch (e) {
+      message.error(toErrorMessage(e));
+    } finally {
+      setConverting(false);
+    }
   };
 
   const columns: ColumnsType<WorkOrder> = [
@@ -183,7 +191,7 @@ export default function WorkOrderListPage() {
         if (found) return <Tag color="geekblue">{found.requirementId}</Tag>;
         if (record.requirementId) {
           return (
-            <Tooltip title="工单已填写需求ID，尚未转需求（可在操作列点「转需求」）">
+            <Tooltip title="工单上登记了需求ID，但对应需求已不存在（如曾被删除），可点「转需求」按此编号重建">
               <Tag color="default">{record.requirementId}</Tag>
             </Tooltip>
           );
@@ -241,9 +249,9 @@ export default function WorkOrderListPage() {
                 ? "该工单已转需求"
                 : record.requirementId
                   ? `按需求ID「${record.requirementId}」创建需求并关联`
-                  : "请先编辑该工单填写「需求ID」"
+                  : "填写需求ID 并创建关联需求"
             }
-            onClick={() => handleConvert(record)}
+            onClick={() => openConvert(record)}
           >
             转需求
           </Button>
@@ -347,6 +355,45 @@ export default function WorkOrderListPage() {
           showTotal: (total) => `共 ${total} 条`,
         }}
       />
+
+      {/* 转需求弹框：需求ID 的填写位置（必填，空编号时确认按钮禁用） */}
+      <Modal
+        title="工单转需求"
+        open={convertTarget !== null}
+        okText="转为需求"
+        cancelText="取消"
+        confirmLoading={converting}
+        okButtonProps={{ disabled: !convertId.trim() }}
+        onOk={handleConvertOk}
+        onCancel={() => setConvertTarget(null)}
+        destroyOnClose
+      >
+        {convertTarget ? (
+          <>
+            <div style={{ marginBottom: 12, color: "#595959" }}>
+              将工单
+              <span style={{ fontWeight: 600 }}>「{convertTarget.title}」</span>
+              转为需求：日期 / 标题 / 内容 / 系统同步自该工单，节点默认「方案中」，
+              工单随即标记为已转需求。
+            </div>
+            <div style={{ marginBottom: 6 }}>
+              <span style={{ color: "#ff4d4f", marginRight: 4 }}>*</span>
+              需求ID
+            </div>
+            <Input
+              autoFocus
+              style={{ width: 240 }}
+              placeholder="如 R-2026-001"
+              value={convertId}
+              onChange={(e) => setConvertId(e.target.value)}
+              onPressEnter={handleConvertOk}
+            />
+            <div style={{ marginTop: 6, color: "#8c8c8c", fontSize: 12 }}>
+              业务编号，需全局唯一；编号已被占用会提示更换。
+            </div>
+          </>
+        ) : null}
+      </Modal>
     </Card>
   );
 }

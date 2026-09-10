@@ -22,7 +22,8 @@ interface AppState {
   updateWorkOrder: (id: string, patch: Partial<WorkOrder>) => Promise<WorkOrder>;
   deleteWorkOrder: (id: string) => Promise<void>;
   /** 工单转需求（一对一）：后端创建需求并置工单标记，本地同步两表 */
-  convertWorkOrder: (id: string) => Promise<Requirement>;
+  /** 工单转需求（一对一）；requirementId 为弹框中填写的需求ID，缺省用工单已登记的编号 */
+  convertWorkOrder: (id: string, requirementId?: string) => Promise<Requirement>;
 
   // 需求
   requirements: Requirement[];
@@ -81,8 +82,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       // 后端已保证：有关联需求时不允许删除，故此处无需额外清理
     }));
   },
-  convertWorkOrder: async (id) => {
-    const { requirement, workOrder } = await workOrderApi.convert(id);
+  convertWorkOrder: async (id, requirementId) => {
+    const { requirement, workOrder } = await workOrderApi.convert(id, requirementId);
     set((s) => ({
       workOrders: s.workOrders.map((w) => (w.id === id ? workOrder : w)),
       requirements: [requirement, ...s.requirements],
