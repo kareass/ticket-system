@@ -1,8 +1,11 @@
 import type { WorkOrder, Requirement } from "@/types";
 
 /**
- * Mock 数据 —— 环节3 前端界面验证用。
- * 后端 API 就绪后由真实请求替换（见 @/lib/api.ts 预留）。
+ * Mock 数据 —— 【已停用】仅保留作历史参考。
+ *
+ * 环节5 起数据源为真实后端 API（`@/lib/api.ts` + Prisma/SQLite），
+ * 页面不再引用本文件；等价演示数据已迁移到 `prisma/seed.ts`（npm run db:seed）。
+ * 请勿在新代码中使用，以免与数据库数据口径漂移。
  */
 
 export const mockWorkOrders: WorkOrder[] = [

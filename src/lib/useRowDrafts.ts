@@ -30,6 +30,13 @@ export interface RowDraftsApi<Row extends { id: string }> {
   merge: (row: Row) => Row;
   /** 批量落库：apply(id, patch) 会逐行调用；成功后清空草稿并返回提交的行数 */
   commit: (apply: (id: string, patch: Partial<Row>) => void) => number;
+  /**
+   * 异步批量落库（接真实 API 用）：apply 返回 Promise，逐行并发提交；
+   * 全部成功后才清空草稿并返回提交行数 —— 任一行失败则草稿保留，用户可重试。
+   */
+  commitAsync: (
+    apply: (id: string, patch: Partial<Row>) => Promise<void>,
+  ) => Promise<number>;
 }
 
 export function useRowDrafts<Row extends { id: string }>(): RowDraftsApi<Row> {
@@ -83,6 +90,25 @@ export function useRowDrafts<Row extends { id: string }>(): RowDraftsApi<Row> {
     [],
   );
 
+  const commitAsync = useCallback(
+    async (
+      apply: (id: string, patch: Partial<Row>) => Promise<void>,
+    ): Promise<number> => {
+      const ds = draftsRef.current;
+      const ids = Object.keys(ds);
+      if (!ids.length) return 0;
+      // 并发提交；任一失败即抛出（草稿不清空，便于修正后重试）
+      await Promise.all(ids.map((id) => apply(id, ds[id] as Partial<Row>)));
+      setDrafts((prev) => {
+        const next = { ...prev };
+        for (const id of ids) delete next[id];
+        return next;
+      });
+      return ids.length;
+    },
+    [],
+  );
+
   return {
     drafts,
     stage,
@@ -91,5 +117,6 @@ export function useRowDrafts<Row extends { id: string }>(): RowDraftsApi<Row> {
     count: Object.keys(drafts).length,
     merge,
     commit,
+    commitAsync,
   };
 }

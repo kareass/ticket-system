@@ -2,40 +2,38 @@
 
 import { useRouter } from "next/navigation";
 import { message } from "antd";
-import type { WorkOrder } from "@/types";
 import { useAppStore } from "@/store/store";
+import { toErrorMessage } from "@/lib/errors";
 import WorkOrderForm, {
   type WorkOrderFormValues,
 } from "@/components/WorkOrderForm";
 
 /**
- * 新建工单页
- * - 复用 WorkOrderForm（create 模式：日期默认今天、系统默认 WMS）
- * - 提交：组装完整 WorkOrder 写入全局 store（mock），成功后提示并返回列表
- * - 转需求自动同步为后续环节（环节5），本期仅记录 isConvertToRequirement 标记
+ * 新建工单页（环节5：写入真实后端）
+ * - 复用 WorkOrderForm（create 模式：日期默认今天、系统默认 WMS、状态默认新建）
+ * - 提交：POST /api/work-orders；成功提示并返回列表，失败展示后端校验信息且留在本页
  */
 export default function CreateWorkOrderPage() {
   const router = useRouter();
   const addWorkOrder = useAppStore((s) => s.addWorkOrder);
 
-  const handleSubmit = (values: WorkOrderFormValues) => {
-    const now = new Date().toISOString();
-    const workOrder: WorkOrder = {
-      // id 留空，交由 store 生成 wo-xxx
-      id: "",
-      date: values.date,
-      title: values.title,
-      content: values.content,
-      system: values.system,
-      isConvertToRequirement: values.isConvertToRequirement,
-      remark: values.remark,
-      status: values.status ?? "新建",
-      createdAt: now,
-      updatedAt: now,
-    };
-    addWorkOrder(workOrder);
-    message.success("工单已创建");
-    router.push("/work-orders");
+  const handleSubmit = async (values: WorkOrderFormValues) => {
+    try {
+      await addWorkOrder({
+        date: values.date,
+        title: values.title,
+        content: values.content,
+        system: values.system,
+        isConvertToRequirement: values.isConvertToRequirement,
+        status: values.status ?? "新建",
+        remark: values.remark,
+      });
+      message.success("工单已创建");
+      router.push("/work-orders");
+    } catch (e) {
+      // 留在本页，用户可修正后重新提交
+      message.error(toErrorMessage(e));
+    }
   };
 
   return <WorkOrderForm mode="create" onSubmit={handleSubmit} />;

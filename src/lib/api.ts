@@ -2,9 +2,10 @@ import axios from "axios";
 import type { WorkOrder, Requirement } from "@/types";
 
 /**
- * API 请求封装 —— 当前为后端就绪前的预留层。
- * 后端 API（环节4）完成后，本文件保持接口签名不变，
- * 前端各页面切换数据源即可，无需改动页面结构。
+ * API 请求封装（环节5 起为真实数据源）
+ * - 所有方法直接返回业务数据（已取 .data），失败时抛 axios 错误，
+ *   由调用方用 @/lib/errors 的 toErrorMessage 转成友好提示。
+ * - baseURL 走 NEXT_PUBLIC_API_BASE_URL，缺省相对路径 /api。
  */
 
 const http = axios.create({
@@ -14,22 +15,44 @@ const http = axios.create({
 
 // ---------- 工单 ----------
 export const workOrderApi = {
-  list: (params?: Record<string, unknown>) =>
-    http.get<WorkOrder[]>("/work-orders", { params }),
-  create: (data: Partial<WorkOrder>) =>
-    http.post<WorkOrder>("/work-orders", data),
-  update: (id: string, data: Partial<WorkOrder>) =>
-    http.put<WorkOrder>(`/work-orders/${id}`, data),
-  remove: (id: string) => http.delete(`/work-orders/${id}`),
+  list: async (params?: { system?: string; keyword?: string }): Promise<WorkOrder[]> =>
+    (await http.get<WorkOrder[]>("/work-orders", { params })).data,
+  get: async (id: string): Promise<WorkOrder> =>
+    (await http.get<WorkOrder>(`/work-orders/${id}`)).data,
+  create: async (data: Partial<WorkOrder>): Promise<WorkOrder> =>
+    (await http.post<WorkOrder>("/work-orders", data)).data,
+  update: async (id: string, data: Partial<WorkOrder>): Promise<WorkOrder> =>
+    (await http.put<WorkOrder>(`/work-orders/${id}`, data)).data,
+  remove: async (id: string): Promise<void> => {
+    await http.delete(`/work-orders/${id}`);
+  },
+  /** 工单转需求（一对一）：返回新建需求 + 已置标记的工单 */
+  convert: async (
+    id: string,
+  ): Promise<{ requirement: Requirement; workOrder: WorkOrder }> =>
+    (
+      await http.post<{ requirement: Requirement; workOrder: WorkOrder }>(
+        `/work-orders/${id}/convert`,
+        {},
+      )
+    ).data,
 };
 
 // ---------- 需求 ----------
 export const requirementApi = {
-  list: (params?: Record<string, unknown>) =>
-    http.get<Requirement[]>("/requirements", { params }),
-  create: (data: Partial<Requirement>) =>
-    http.post<Requirement>("/requirements", data),
-  update: (id: string, data: Partial<Requirement>) =>
-    http.put<Requirement>(`/requirements/${id}`, data),
-  remove: (id: string) => http.delete(`/requirements/${id}`),
+  list: async (params?: {
+    system?: string;
+    currentNode?: string;
+    keyword?: string;
+  }): Promise<Requirement[]> =>
+    (await http.get<Requirement[]>("/requirements", { params })).data,
+  get: async (id: string): Promise<Requirement> =>
+    (await http.get<Requirement>(`/requirements/${id}`)).data,
+  create: async (data: Partial<Requirement>): Promise<Requirement> =>
+    (await http.post<Requirement>("/requirements", data)).data,
+  update: async (id: string, data: Partial<Requirement>): Promise<Requirement> =>
+    (await http.put<Requirement>(`/requirements/${id}`, data)).data,
+  remove: async (id: string): Promise<void> => {
+    await http.delete(`/requirements/${id}`);
+  },
 };

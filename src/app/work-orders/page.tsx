@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Button,
   Card,
   Input,
+  Modal,
   Popconfirm,
   Select,
   Space,
@@ -20,7 +21,8 @@ import { useRowDrafts } from "@/lib/useRowDrafts";
 import { SYSTEM_OPTIONS } from "@/types";
 import type { WorkOrder, WorkOrderStatus } from "@/types";
 import { useAppStore } from "@/store/store";
-import { formatDate } from "@/lib/utils";
+import { formatDate, workOrderNo } from "@/lib/utils";
+import { toErrorMessage } from "@/lib/errors";
 
 // 系统标签配色：仅作视觉区分，未覆盖的系统退回默认灰色
 const SYSTEM_COLORS: Record<string, string> = {
@@ -32,17 +34,21 @@ const SYSTEM_COLORS: Record<string, string> = {
 };
 
 /**
- * 工单列表页
- * - 数据源：全局 store（useAppStore.workOrders），当前为 mock，后端就绪后无需改页面
- * - 新建 / 编辑分别链接到 /work-orders/create、/work-orders/edit/{id}（表单页另见任务卡）
- * - 搜索（按标题）与系统筛选在前端对 workOrders 过滤，空态使用 Table 默认 Empty
- * - 列表格内可直接修改「是否转需求」「系统」「状态」字段，修改暂存草稿，显式点「提交」才落库
+ * 工单列表页（环节5：数据源为真实后端 API）
+ * - 挂载时拉取工单 + 需求（后者用于「关联需求」列反查）
+ * - 列表内可改「系统 / 是否转需求 / 状态」→ 暂存草稿，点「提交」并确认后才落库
+ * - 操作列提供「转需求」：调用后端一对一转换接口，自动创建需求并置标记
+ * - 所有失败（校验/冲突/网络）统一用 toErrorMessage 友好提示
  */
 export default function WorkOrderListPage() {
   const workOrders = useAppStore((s) => s.workOrders);
   const requirements = useAppStore((s) => s.requirements);
+  const loading = useAppStore((s) => s.workOrdersLoading);
+  const loadWorkOrders = useAppStore((s) => s.loadWorkOrders);
+  const loadRequirements = useAppStore((s) => s.loadRequirements);
   const deleteWorkOrder = useAppStore((s) => s.deleteWorkOrder);
   const updateWorkOrder = useAppStore((s) => s.updateWorkOrder);
+  const convertWorkOrder = useAppStore((s) => s.convertWorkOrder);
 
   // 草稿状态：内联修改暂存草稿，显式提交才落库
   const drafts = useRowDrafts<WorkOrder>();
@@ -50,6 +56,12 @@ export default function WorkOrderListPage() {
   // 标题搜索关键字 / 系统筛选值（受控，allowClear 清空后为 undefined 表示不过滤）
   const [keyword, setKeyword] = useState("");
   const [system, setSystem] = useState<string | undefined>(undefined);
+
+  // 初次挂载拉取数据（需求列表用于反查「关联需求」）
+  useEffect(() => {
+    void loadWorkOrders().catch((e) => message.error(toErrorMessage(e)));
+    void loadRequirements().catch((e) => message.error(toErrorMessage(e)));
+  }, [loadWorkOrders, loadRequirements]);
 
   // 前端过滤：标题包含 + 系统相等（无关键字 / 未选系统时不参与过滤）
   const filteredWorkOrders = useMemo(() => {
@@ -65,20 +77,51 @@ export default function WorkOrderListPage() {
   const systemFilterOptions: { label: string; value: string }[] =
     SYSTEM_OPTIONS.map((item) => ({ label: item, value: item }));
 
-  // 提交处理函数：将全部草稿批量落库
+  // 提交：先确认，再把全部草稿逐个写入后端（全成功才清空草稿）
   const handleCommit = () => {
-    const n = drafts.commit((id, patch) =>
-      updateWorkOrder(id, { ...patch, updatedAt: new Date().toISOString() }),
-    );
-    if (n > 0) message.success(`已提交 ${n} 条工单修改`);
+    Modal.confirm({
+      title: `确认提交 ${drafts.count} 条修改？`,
+      content: "提交后将写入数据库，列表数据会同步更新。",
+      okText: "确认提交",
+      cancelText: "取消",
+      onOk: async () => {
+        try {
+          const n = await drafts.commitAsync(async (id, patch) => {
+            await updateWorkOrder(id, patch);
+          });
+          if (n > 0) message.success(`已提交 ${n} 条工单修改`);
+        } catch (e) {
+          message.error(toErrorMessage(e));
+        }
+      },
+    });
+  };
+
+  // 转需求：确认后调用后端一对一转换（自动建需求 + 置工单标记）
+  const handleConvert = (record: WorkOrder) => {
+    Modal.confirm({
+      title: "确认将该工单转为需求？",
+      content: `将按工单「${record.title}」自动创建需求（日期/标题/内容/系统同步），并标记该工单已转需求。`,
+      okText: "转为需求",
+      cancelText: "取消",
+      onOk: async () => {
+        try {
+          const req = await convertWorkOrder(record.id);
+          message.success(`已转为需求 ${req.requirementId}`);
+        } catch (e) {
+          message.error(toErrorMessage(e));
+        }
+      },
+    });
   };
 
   const columns: ColumnsType<WorkOrder> = [
     {
-      // ① 工单ID列（直接显示 id 字符串，如 wo-001）
+      // ① 工单ID列：库主键为 cuid，展示派生短号（wo-末8位）
       title: "工单ID",
       dataIndex: "id",
-      width: 110,
+      width: 120,
+      render: (id: string) => workOrderNo(id),
     },
     {
       title: "日期",
@@ -175,10 +218,10 @@ export default function WorkOrderListPage() {
       render: (remark?: string) => remark || "-",
     },
     {
-      // ② ③ 操作列固定在最右侧
+      // ② ③ 操作列固定在最右侧（含转需求入口）
       title: "操作",
       key: "action",
-      width: 150,
+      width: 210,
       fixed: "right",
       render: (_, record) => (
         <Space size={0}>
@@ -187,15 +230,31 @@ export default function WorkOrderListPage() {
               编辑
             </Button>
           </Link>
+          <Button
+            type="link"
+            size="small"
+            disabled={record.isConvertToRequirement}
+            title={
+              record.isConvertToRequirement ? "该工单已转需求" : "自动创建需求并关联"
+            }
+            onClick={() => handleConvert(record)}
+          >
+            转需求
+          </Button>
           <Popconfirm
             title="删除工单"
             description="确定删除该工单吗？删除后不可恢复。"
             okText="删除"
             cancelText="取消"
             okButtonProps={{ danger: true }}
-            onConfirm={() => {
+            onConfirm={async () => {
               drafts.discard(record.id);
-              deleteWorkOrder(record.id);
+              try {
+                await deleteWorkOrder(record.id);
+                message.success("工单已删除");
+              } catch (e) {
+                message.error(toErrorMessage(e));
+              }
             }}
           >
             <Button type="link" size="small" danger>
@@ -261,7 +320,8 @@ export default function WorkOrderListPage() {
         rowKey="id"
         columns={columns}
         dataSource={filteredWorkOrders.map(drafts.merge)}
-        scroll={{ x: 1450 }}
+        loading={loading}
+        scroll={{ x: 1510 }}
         layoutStorageKey="work-orders"
         pagination={{
           pageSize: 10,

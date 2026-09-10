@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Button,
   Card,
   Input,
   message,
+  Modal,
   Popconfirm,
   Select,
   Space,
@@ -18,6 +19,7 @@ import type { Requirement, RequirementNode } from "@/types";
 import { NODE_OPTIONS, SYSTEM_OPTIONS } from "@/types";
 import { useAppStore } from "@/store/store";
 import { formatDate, today } from "@/lib/utils";
+import { toErrorMessage } from "@/lib/errors";
 import ProTable from "@/components/common/ProTable";
 import EditableChip from "@/components/common/EditableChip";
 import { useRowDrafts } from "@/lib/useRowDrafts";
@@ -54,6 +56,9 @@ const nodeOptions: { label: RequirementNode; value: RequirementNode }[] =
 export default function RequirementListPage() {
   const requirements = useAppStore((s) => s.requirements);
   const workOrders = useAppStore((s) => s.workOrders);
+  const loading = useAppStore((s) => s.requirementsLoading);
+  const loadRequirements = useAppStore((s) => s.loadRequirements);
+  const loadWorkOrders = useAppStore((s) => s.loadWorkOrders);
   const deleteRequirement = useAppStore((s) => s.deleteRequirement);
   const updateRequirement = useAppStore((s) => s.updateRequirement);
 
@@ -62,6 +67,12 @@ export default function RequirementListPage() {
 
   // 草稿状态：修改后需显式点提交才落库
   const drafts = useRowDrafts<Requirement>();
+
+  // 初次挂载拉取数据（工单列表用于「来源工单」列反查标题）
+  useEffect(() => {
+    void loadRequirements().catch((e) => message.error(toErrorMessage(e)));
+    void loadWorkOrders().catch((e) => message.error(toErrorMessage(e)));
+  }, [loadRequirements, loadWorkOrders]);
 
   // 前端过滤：需求ID或标题包含 + 当前节点相等
   const filteredRequirements = useMemo(() => {
@@ -76,12 +87,24 @@ export default function RequirementListPage() {
     });
   }, [requirements, keyword, node]);
 
-  // 提交全部草稿到 store
+  // 提交：先确认，再把全部草稿逐个写入后端（全成功才清空草稿）
   const handleCommit = () => {
-    const n = drafts.commit((id, patch) =>
-      updateRequirement(id, { ...patch, updatedAt: new Date().toISOString() }),
-    );
-    if (n > 0) message.success(`已提交 ${n} 条需求修改`);
+    Modal.confirm({
+      title: `确认提交 ${drafts.count} 条修改？`,
+      content: "提交后将写入数据库，列表数据会同步更新。",
+      okText: "确认提交",
+      cancelText: "取消",
+      onOk: async () => {
+        try {
+          const n = await drafts.commitAsync(async (id, patch) => {
+            await updateRequirement(id, patch);
+          });
+          if (n > 0) message.success(`已提交 ${n} 条需求修改`);
+        } catch (e) {
+          message.error(toErrorMessage(e));
+        }
+      },
+    });
   };
 
   const columns: ColumnsType<Requirement> = [
@@ -264,9 +287,18 @@ export default function RequirementListPage() {
             okText="删除"
             cancelText="取消"
             okButtonProps={{ danger: true }}
-            onConfirm={() => {
+            onConfirm={async () => {
               drafts.discard(record.id);
-              deleteRequirement(record.id);
+              try {
+                await deleteRequirement(record.id);
+                // 若该需求来自工单，后端已复位工单的转需求标记 → 刷新工单列表保持一致
+                if (record.workOrderId) {
+                  await loadWorkOrders();
+                }
+                message.success("需求已删除");
+              } catch (e) {
+                message.error(toErrorMessage(e));
+              }
             }}
           >
             <Button type="link" size="small" danger>
@@ -333,6 +365,7 @@ export default function RequirementListPage() {
         rowKey="id"
         columns={columns}
         dataSource={filteredRequirements.map(drafts.merge)}
+        loading={loading}
         scroll={{ x: 1560 }}
         layoutStorageKey="requirements"
         pagination={{
