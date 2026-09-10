@@ -228,7 +228,7 @@ export default function WorkOrderForm({
             label="是否转需求"
             name="isConvertToRequirement"
             valuePropName="checked"
-            extra="本期仅记录标记，自动生成需求的同步逻辑将在后续环节实现"
+            extra="转需求时可从列表操作列一键转换（自动生成需求并置为「是」）；此处仅用于手工修正标记"
           >
             <Switch />
           </Form.Item>

@@ -54,7 +54,7 @@ const isDateStr = (v) => typeof v === "string" && CAL.test(v);
 
 const WO_DATE = "2026-09-05";
 const NO_DATE = (() => new Date().toISOString().slice(0, 10))();
-let woA, woB, reqLink, reqConv;
+let woA, woB, reqLink, reqConv, reqStandalone;
 
 console.log("== 工单 CRUD ==");
 
@@ -148,6 +148,7 @@ const RID_B = `R-${new Date().getFullYear()}-SM${TAG}b`;
     developmentDays: 999, // 服务端应忽略重算
   });
   ok(r.status === 201, "创建需求 → 201", `status=${r.status}`);
+  reqStandalone = r.data && r.data.id; // 供末尾清理，避免反复运行残留数据
   ok(r.data.requirementId === RID_A && r.data.date === "2026-08-01", "业务编号/日期正确");
   ok(r.data.currentNode === "测试中" && r.data.isUrgent === true, "节点/加急写入正确");
   ok(typeof r.data.developmentDays === "number" && r.data.developmentDays > 0, "developmentDays 服务端重算(>0)", String(r.data.developmentDays));
@@ -271,6 +272,11 @@ console.log("== 删除与一致性 ==");
 {
   const r = await req("GET", `/api/requirements/${reqLink}`);
   ok(r.status === 404, "单查被删需求 → 404");
+}
+// 27. 清理：删除用例10 创建的无来源需求（本脚本不留下任何残留数据）
+{
+  const r = await req("DELETE", `/api/requirements/${reqStandalone}`);
+  ok(r.status === 204, "清理独立需求 → 204（不留残留）", `status=${r.status}`);
 }
 
 console.log(failures === 0 ? "\n全部用例通过 ✅" : `\n${failures} 项失败 ❌`);

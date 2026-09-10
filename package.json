@@ -3,16 +3,24 @@
   "version": "1.0.0",
   "private": true,
   "description": "四川物流工单系统 - 内部工单统计与需求追踪系统",
+  "engines": {
+    "node": ">=18.17.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "postinstall": "prisma generate",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate deploy",
+    "db:init": "bash scripts/db-init.sh",
     "db:seed": "tsx prisma/seed.ts",
     "db:reset": "prisma migrate reset --force",
+    "check:env": "node scripts/check-env.mjs",
     "api:smoke": "node scripts/api-smoke.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "verify": "npm run typecheck && npm run build"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

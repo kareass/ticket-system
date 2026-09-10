@@ -3,6 +3,7 @@
 
 # 构建产物
 /.next
+/.next-build
 /out
 /build
 tsconfig.tsbuildinfo
