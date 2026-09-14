@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import type { Requirement as DbRequirement, WorkOrder as DbWorkOrder } from "@prisma/client";
-import { NODE_OPTIONS, SYSTEM_OPTIONS } from "@/types";
+import { NODE_OPTIONS, SYSTEM_OPTIONS, WORK_ORDER_STATUS_OPTIONS } from "@/types";
 import { diffDays } from "@/lib/utils";
 
 /**
@@ -14,8 +14,9 @@ import { diffDays } from "@/lib/utils";
  *     未发版 → date → 今天；已发版 → date → 发版时间；含当天，下限 0。
  */
 
+// 枚举单一来源：全部转发自 src/types（见该文件顶部说明），本文件不再另写一份取值
 export const SYSTEMS: readonly string[] = SYSTEM_OPTIONS;
-export const WORK_ORDER_STATUSES = ["新建", "已处理", "已关闭"] as const;
+export const WORK_ORDER_STATUSES: readonly string[] = WORK_ORDER_STATUS_OPTIONS;
 export const NODES: readonly string[] = NODE_OPTIONS;
 
 const CALENDAR_DAY = /^\d{4}-\d{2}-\d{2}$/;

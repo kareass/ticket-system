@@ -2,11 +2,10 @@
 
 import type { CSSProperties } from "react";
 import { Select } from "antd";
-import { SYSTEM_OPTIONS } from "@/types";
+import { SYSTEM_OPTIONS, asSelectOptions } from "@/types";
 
-// 系统下拉可选项：由全局系统枚举 SYSTEM_OPTIONS 映射为 antd 所需结构
-const systemSelectOptions: { label: string; value: string }[] =
-  SYSTEM_OPTIONS.map((item) => ({ label: item, value: item }));
+// 系统下拉可选项：唯一来源 src/types（前端表单/列表与后端枚举校验共用同一份取值）
+const systemSelectOptions = asSelectOptions(SYSTEM_OPTIONS);
 
 interface SystemSelectProps {
   /** 当前选中的系统值（受控） */

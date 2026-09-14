@@ -1,26 +1,87 @@
 // 全局类型定义：与 prisma/schema.prisma 保持字段口径一致
 
-// 工单状态（预留扩展，以设计文档为准：新建/已处理/已关闭）
-export type WorkOrderStatus = "新建" | "已处理" | "已关闭";
+// ============================================================================
+// 下拉选项「单一来源」
+// ----------------------------------------------------------------------------
+// 本文件是全站唯一的选项定义处。以下三处都只从这里取，不再各自写一份：
+//   ① 表单下拉（WorkOrderForm / RequirementForm / SystemSelect）
+//   ② 列表内联下拉与筛选框（work-orders、requirements 两个列表页）
+//   ③ 后端接口的枚举校验（src/lib/server/helpers.ts 转发为 SYSTEMS / NODES /
+//      WORK_ORDER_STATUSES）
+//
+// 想新增一个下拉选项：**只改下面数组里的一行**。
+//   - 数组声明为 as const，联合类型由数组自动推导（typeof ARR[number]），
+//     不必再手改类型定义；
+//   - 配色表是 Record<联合类型, string>，漏加配色会直接编译报错，不会静默失败；
+//   - 无需数据库迁移：schema.prisma 中这些字段是普通 String 列，不是数据库枚举。
+//
+// ⚠️ 需求节点 NODE_OPTIONS 的五种取值写死在设计文档里，增删节点属于需求变更，
+//    应先改设计文档再改这里；系统 SYSTEM_OPTIONS 在设计文档中未枚举，可直接增删。
+// ============================================================================
 
-// 系统枚举（下拉框选项）
+/** 系统（工单表 / 需求表共用） */
 export const SYSTEM_OPTIONS = ["WMS", "ERP", "OMS", "TMS", "其他"] as const;
+export type SystemValue = (typeof SYSTEM_OPTIONS)[number];
 
-// 需求当前节点（下拉框选项）
-export type RequirementNode =
-  | "方案中"
-  | "开发中"
-  | "测试中"
-  | "已合并"
-  | "已发布";
+/** 工单状态（预留扩展，以设计文档为准：新建/已处理/已关闭） */
+export const WORK_ORDER_STATUS_OPTIONS = ["新建", "已处理", "已关闭"] as const;
+export type WorkOrderStatus = (typeof WORK_ORDER_STATUS_OPTIONS)[number];
 
-export const NODE_OPTIONS: RequirementNode[] = [
+/** 需求当前节点 */
+export const NODE_OPTIONS = [
   "方案中",
   "开发中",
   "测试中",
   "已合并",
   "已发布",
+] as const;
+export type RequirementNode = (typeof NODE_OPTIONS)[number];
+
+/**
+ * 是 / 否 布尔下拉选项（「是否加急」「是否发版」共用）
+ * 注意：值是 boolean 而非字符串，别与上面的字符串枚举混用
+ */
+export const YES_NO_OPTIONS: { label: string; value: boolean }[] = [
+  { label: "否", value: false },
+  { label: "是", value: true },
 ];
+
+/**
+ * 字符串选项数组 → antd Select / EditableChip 需要的 { label, value } 结构
+ * 收敛各处重复的 `.map((v) => ({ label: v, value: v }))`
+ */
+export function asSelectOptions<T extends string>(
+  values: readonly T[],
+): { label: T; value: T }[] {
+  return values.map((value) => ({ label: value, value }));
+}
+
+// ---------- 标签配色（与上面的选项一一对应，新增选项时同步补一行） ----------
+
+/** 系统标签配色（未覆盖的系统退回默认灰色） */
+export const SYSTEM_COLORS: Record<string, string> = {
+  WMS: "blue",
+  ERP: "purple",
+  OMS: "cyan",
+  TMS: "orange",
+  其他: "gold",
+};
+
+/** 工单状态标签配色 */
+export const WORK_ORDER_STATUS_COLORS: Record<WorkOrderStatus, string> = {
+  新建: "gold",
+  已处理: "success",
+  已关闭: "default",
+};
+
+/** 需求节点标签配色 */
+export const NODE_COLORS: Record<RequirementNode, string> = {
+  方案中: "default",
+  开发中: "processing",
+  测试中: "warning",
+  已合并: "cyan",
+  已发布: "success",
+};
 
 // ---------- 工单 WorkOrder ----------
 export interface WorkOrder {

@@ -6,15 +6,12 @@ import dayjs from "dayjs";
 import type { Dayjs } from "dayjs";
 import { Button, Card, DatePicker, Form, Input, Select, Switch } from "antd";
 import type { WorkOrder, WorkOrderStatus } from "@/types";
+import { WORK_ORDER_STATUS_OPTIONS, asSelectOptions } from "@/types";
 import { today } from "@/lib/utils";
 import SystemSelect from "@/components/common/SystemSelect";
 
-// 工单状态可选项（与列表页内联可改一致：新建/已处理/已关闭）
-const STATUS_OPTIONS: { label: WorkOrderStatus; value: WorkOrderStatus }[] = [
-  { label: "新建", value: "新建" },
-  { label: "已处理", value: "已处理" },
-  { label: "已关闭", value: "已关闭" },
-];
+// 工单状态可选项（唯一来源：src/types，与列表页内联可改共用同一份）
+const STATUS_OPTIONS = asSelectOptions(WORK_ORDER_STATUS_OPTIONS);
 
 /**
  * 工单表单提交值

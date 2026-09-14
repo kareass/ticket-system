@@ -73,7 +73,7 @@ export async function POST(req: Request) {
   }
 
   const status = asTrimmed(body.status) || "新建";
-  if (!(WORK_ORDER_STATUSES as readonly string[]).includes(status)) {
+  if (!WORK_ORDER_STATUSES.includes(status)) {
     errors.push(`status 须为以下之一：${WORK_ORDER_STATUSES.join(" / ")}。`);
   }
 

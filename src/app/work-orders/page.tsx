@@ -19,20 +19,13 @@ import { PlusOutlined, ReloadOutlined, SearchOutlined } from "@ant-design/icons"
 import ProTable from "@/components/common/ProTable";
 import EditableChip from "@/components/common/EditableChip";
 import { useRowDrafts } from "@/lib/useRowDrafts";
-import { SYSTEM_OPTIONS } from "@/types";
+import { SYSTEM_OPTIONS, SYSTEM_COLORS, WORK_ORDER_STATUS_COLORS, WORK_ORDER_STATUS_OPTIONS, asSelectOptions } from "@/types";
 import type { WorkOrder, WorkOrderStatus } from "@/types";
 import { useAppStore } from "@/store/store";
 import { formatDate, workOrderNo } from "@/lib/utils";
 import { toErrorMessage } from "@/lib/errors";
 
-// 系统标签配色：仅作视觉区分，未覆盖的系统退回默认灰色
-const SYSTEM_COLORS: Record<string, string> = {
-  WMS: "blue",
-  ERP: "purple",
-  OMS: "cyan",
-  TMS: "orange",
-  其他: "gold",
-};
+// 系统 / 工单状态配色：唯一来源 src/types（新增选项时只改那一处）
 
 /**
  * 工单列表页（环节5：数据源为真实后端 API）
@@ -83,9 +76,10 @@ export default function WorkOrderListPage() {
     });
   }, [workOrders, keyword, system]);
 
-  // 系统筛选下拉可选项：与 SystemSelect 一致，复用全局枚举 SYSTEM_OPTIONS
-  const systemFilterOptions: { label: string; value: string }[] =
-    SYSTEM_OPTIONS.map((item) => ({ label: item, value: item }));
+  // 系统筛选下拉可选项：唯一来源 src/types，与 SystemSelect 共用
+  const systemFilterOptions = asSelectOptions(SYSTEM_OPTIONS);
+  // 状态选项：唯一来源 src/types，与表单页共用
+  const statusOptions = asSelectOptions(WORK_ORDER_STATUS_OPTIONS);
 
   // 提交：先确认，再把全部草稿逐个写入后端（全成功才清空草稿）
   const handleCommit = () => {
@@ -212,13 +206,8 @@ export default function WorkOrderListPage() {
       render: (status: string, record) => (
         <EditableChip
           value={status as WorkOrderStatus}
-          options={["新建", "已处理", "已关闭"].map((v) => ({
-            label: v,
-            value: v as WorkOrderStatus,
-          }))}
-          colorOf={(s) =>
-            s === "已处理" ? "success" : s === "新建" ? "gold" : undefined
-          }
+          options={statusOptions}
+          colorOf={(s) => WORK_ORDER_STATUS_COLORS[s]}
           dirty={drafts.isFieldDirty(record.id, "status")}
           onChange={(v) =>
             drafts.stage(record.id, { status: v as WorkOrderStatus } as Partial<WorkOrder>)

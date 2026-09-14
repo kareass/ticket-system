@@ -6,7 +6,7 @@ import dayjs from "dayjs";
 import type { Dayjs } from "dayjs";
 import { Button, Card, DatePicker, Form, Input, Select, Switch } from "antd";
 import type { Requirement, RequirementNode } from "@/types";
-import { NODE_OPTIONS } from "@/types";
+import { NODE_OPTIONS, YES_NO_OPTIONS, asSelectOptions } from "@/types";
 import { diffDays, today } from "@/lib/utils";
 import SystemSelect from "@/components/common/SystemSelect";
 
@@ -72,15 +72,11 @@ interface RequirementFormFields {
   remark?: string;
 }
 
-/** 当前节点下拉选项：复用全局 NODE_OPTIONS */
-const nodeOptions: { label: RequirementNode; value: RequirementNode }[] =
-  NODE_OPTIONS.map((node) => ({ label: node, value: node }));
+/** 当前节点下拉选项：唯一来源 src/types */
+const nodeOptions = asSelectOptions(NODE_OPTIONS);
 
-/** 是否加急下拉选项：是/否 */
-const urgentOptions: { label: string; value: boolean }[] = [
-  { label: "否", value: false },
-  { label: "是", value: true },
-];
+/** 是否加急下拉选项：是/否（唯一来源 src/types） */
+const urgentOptions = YES_NO_OPTIONS;
 
 /**
  * 开发时长计算规则（表单实时预览与提交落库统一走此函数）：

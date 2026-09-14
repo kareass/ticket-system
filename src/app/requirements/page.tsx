@@ -16,7 +16,14 @@ import {
 import type { ColumnsType } from "antd/es/table";
 import { PlusOutlined, ReloadOutlined, SearchOutlined } from "@ant-design/icons";
 import type { Requirement, RequirementNode } from "@/types";
-import { NODE_OPTIONS, SYSTEM_OPTIONS } from "@/types";
+import {
+  NODE_COLORS,
+  NODE_OPTIONS,
+  SYSTEM_COLORS,
+  SYSTEM_OPTIONS,
+  YES_NO_OPTIONS,
+  asSelectOptions,
+} from "@/types";
 import { useAppStore } from "@/store/store";
 import { formatDate, today } from "@/lib/utils";
 import { toErrorMessage } from "@/lib/errors";
@@ -24,27 +31,12 @@ import ProTable from "@/components/common/ProTable";
 import EditableChip from "@/components/common/EditableChip";
 import { useRowDrafts } from "@/lib/useRowDrafts";
 
-// 系统标签配色
-const SYSTEM_COLORS: Record<string, string> = {
-  WMS: "blue",
-  ERP: "purple",
-  OMS: "cyan",
-  TMS: "orange",
-  其他: "gold",
-};
-
-// 需求当前节点配色
-const NODE_COLORS: Record<RequirementNode, string> = {
-  方案中: "default",
-  开发中: "processing",
-  测试中: "warning",
-  已合并: "cyan",
-  已发布: "success",
-};
+// 配色与选项均唯一来源 src/types（新增选项时只改那一处）
 
 // 当前节点筛选下拉选项
-const nodeOptions: { label: RequirementNode; value: RequirementNode }[] =
-  NODE_OPTIONS.map((node) => ({ label: node, value: node }));
+const nodeOptions = asSelectOptions(NODE_OPTIONS);
+// 系统选项：列表内联编辑用
+const systemOptions = asSelectOptions(SYSTEM_OPTIONS);
 
 /**
  * 需求列表页
@@ -143,14 +135,10 @@ export default function RequirementListPage() {
       key: "system",
       width: 100,
       render: (system: string, record) => {
-        const systemOpts = SYSTEM_OPTIONS.map((s) => ({
-          label: s,
-          value: s,
-        }));
         return (
           <EditableChip
             value={system}
-            options={systemOpts}
+            options={systemOptions}
             colorOf={(s) => SYSTEM_COLORS[s]}
             dirty={drafts.isFieldDirty(record.id, "system")}
             onChange={(val) =>
@@ -174,11 +162,10 @@ export default function RequirementListPage() {
       key: "currentNode",
       width: 120,
       render: (currentNode: RequirementNode, record) => {
-        const nodeOpts = NODE_OPTIONS.map((n) => ({ label: n, value: n }));
         return (
           <EditableChip
             value={currentNode}
-            options={nodeOpts}
+            options={nodeOptions}
             colorOf={(n) => NODE_COLORS[n]}
             dirty={drafts.isFieldDirty(record.id, "currentNode")}
             onChange={(val) =>
@@ -197,10 +184,7 @@ export default function RequirementListPage() {
       render: (isUrgent: boolean, record) => (
         <EditableChip
           value={isUrgent}
-          options={[
-            { label: "否", value: false },
-            { label: "是", value: true },
-          ]}
+          options={YES_NO_OPTIONS}
           colorOf={(v) => (v ? "red" : undefined)}
           dirty={drafts.isFieldDirty(record.id, "isUrgent")}
           onChange={(val) =>
@@ -218,10 +202,7 @@ export default function RequirementListPage() {
       render: (isReleased: boolean, record) => (
         <EditableChip
           value={isReleased}
-          options={[
-            { label: "否", value: false },
-            { label: "是", value: true },
-          ]}
+          options={YES_NO_OPTIONS}
           colorOf={(v) => (v ? "success" : undefined)}
           dirty={drafts.isFieldDirty(record.id, "isReleased")}
           onChange={(val) => {

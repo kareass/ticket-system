@@ -79,7 +79,7 @@ export async function PUT(req: Request, { params }: Ctx) {
   }
   if (body.status !== undefined) {
     const status = asTrimmed(body.status);
-    if (!status || !(WORK_ORDER_STATUSES as readonly string[]).includes(status)) {
+    if (!status || !WORK_ORDER_STATUSES.includes(status)) {
       errors.push(`status 须为以下之一：${WORK_ORDER_STATUSES.join(" / ")}。`);
     } else data.status = status;
   }
