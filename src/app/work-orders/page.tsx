@@ -61,9 +61,10 @@ export default function WorkOrderListPage() {
   const [keyword, setKeyword] = useState("");
   const [system, setSystem] = useState<string | undefined>(undefined);
 
-  // 转需求弹框：目标工单 + 待填需求ID + 提交中
+  // 转需求弹框：目标工单 + 待填需求ID / 需求内容 + 提交中
   const [convertTarget, setConvertTarget] = useState<WorkOrder | null>(null);
   const [convertId, setConvertId] = useState("");
+  const [convertContent, setConvertContent] = useState("");
   const [converting, setConverting] = useState(false);
 
   // 初次挂载拉取数据（需求列表用于反查「关联需求」）
@@ -106,10 +107,11 @@ export default function WorkOrderListPage() {
     });
   };
 
-  // 转需求弹框：需求ID 直接在弹框内填写（工单上已登记则回填，可改），无需先去编辑页
+  // 转需求弹框：需求ID 与需求内容直接在弹框内填写（工单上已登记则回填，可改），无需先去编辑页
   const openConvert = (record: WorkOrder) => {
     setConvertTarget(record);
     setConvertId(record.requirementId ?? "");
+    setConvertContent(record.requirementContent ?? "");
   };
 
   const handleConvertOk = async () => {
@@ -121,7 +123,11 @@ export default function WorkOrderListPage() {
     }
     setConverting(true);
     try {
-      const req = await convertWorkOrder(convertTarget.id, rid);
+      // 需求内容按填写值原样提交：留空即转出「内容为空」的需求（后端不再回退成工单标题）
+      const req = await convertWorkOrder(convertTarget.id, {
+        requirementId: rid,
+        requirementContent: convertContent.trim(),
+      });
       message.success(`已转为需求 ${req.requirementId}`);
       setConvertTarget(null);
     } catch (e) {
@@ -388,8 +394,19 @@ export default function WorkOrderListPage() {
               onChange={(e) => setConvertId(e.target.value)}
               onPressEnter={handleConvertOk}
             />
-            <div style={{ marginTop: 6, color: "#8c8c8c", fontSize: 12 }}>
+            <div style={{ marginTop: 6, marginBottom: 12, color: "#8c8c8c", fontSize: 12 }}>
               业务编号，需全局唯一；编号已被占用会提示更换。
+            </div>
+
+            <div style={{ marginBottom: 6 }}>需求内容</div>
+            <Input.TextArea
+              rows={3}
+              placeholder="选填，描述需求背景与验收期望"
+              value={convertContent}
+              onChange={(e) => setConvertContent(e.target.value)}
+            />
+            <div style={{ marginTop: 6, color: "#8c8c8c", fontSize: 12 }}>
+              留空则转出的需求内容也为空（不会自动取工单标题）。
             </div>
           </>
         ) : null}

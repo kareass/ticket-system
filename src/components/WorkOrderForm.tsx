@@ -37,7 +37,7 @@ export interface WorkOrderFormValues {
   status: WorkOrderStatus;
   /** 需求ID（业务编号；「是否转需求」为是时必填） */
   requirementId?: string;
-  /** 需求内容（转需求时同步到需求表；留空则取工单标题） */
+  /** 需求内容（转需求时同步到需求表；留空则转出的需求内容也为空） */
   requirementContent?: string;
   /** 备注（可空） */
   remark?: string;
@@ -282,17 +282,12 @@ export default function WorkOrderForm({
             <Switch
               disabled={convertedLocked}
               onChange={(checked) => {
-                if (checked) {
-                  // 开启转需求时，需求内容默认取工单标题（可自行修改）
-                  if (!form.getFieldValue("requirementContent")) {
-                    const title = form.getFieldValue("title");
-                    if (title) form.setFieldValue("requirementContent", title);
-                  }
-                  return;
-                }
                 // 关闭转需求时一并清空「需求ID / 需求内容」：这两个字段仅在转需求时有意义，
                 // 否则会留下一个指向不存在需求的编号（要转需求可在列表点「转需求」填编号）
-                form.setFieldsValue({ requirementId: "", requirementContent: "" });
+                // 开启时不做任何预填 —— 需求内容填什么就是什么，留空即转出「内容为空」的需求
+                if (!checked) {
+                  form.setFieldsValue({ requirementId: "", requirementContent: "" });
+                }
               }}
             />
           </Form.Item>
@@ -330,7 +325,7 @@ export default function WorkOrderForm({
           <Form.Item
             label="需求内容"
             name="requirementContent"
-            extra="转需求时同步到需求表；留空则取工单标题"
+            extra="转需求时同步到需求表；留空则需求内容也为空（不会自动取标题）"
           >
             <Input.TextArea
               rows={3}

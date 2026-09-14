@@ -26,6 +26,9 @@ export default function CreateWorkOrderPage() {
         system: values.system,
         isConvertToRequirement: values.isConvertToRequirement,
         status: values.status ?? "新建",
+        // 需求ID/需求内容必须一并下发：漏传时若开关为「是」，后端会以「需求ID 必填」400 拒绝
+        requirementId: values.requirementId,
+        requirementContent: values.requirementContent,
         remark: values.remark,
       });
       message.success("工单已创建");

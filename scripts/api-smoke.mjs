@@ -58,7 +58,8 @@ const isDateStr = (v) => typeof v === "string" && CAL.test(v);
 
 const WO_DATE = "2026-09-05";
 const NO_DATE = (() => new Date().toISOString().slice(0, 10))();
-let woA, woB, woC, woD, woE, reqLink, reqConv, reqConvD, reqAuto, reqStandalone;
+let woA, woB, woC, woD, woE, woF, woG,
+  reqLink, reqConv, reqConvD, reqConvE, reqConvG, reqAuto, reqAutoF, reqStandalone;
 
 console.log("== 工单 CRUD ==");
 
@@ -220,6 +221,28 @@ const RID_AUTO = `R-${YEAR}-AUTO${TAG}`;
   ok(auto.workOrderId === woC, "需求回指来源工单");
   ok(typeof auto.developmentDays === "number" && auto.developmentDays > 0, "自动生成需求的开发时长已算");
 }
+// 12b. 建单即转需求但不填「需求内容」→ 需求内容为空（不回退成工单标题）
+{
+  const RID_AUTO_F = `R-${YEAR}-AUTOF${TAG}`;
+  const r = await req("POST", "/api/work-orders", {
+    date: WO_DATE,
+    title: `WO-F ${TAG}`,
+    content: "冒烟：不填需求内容",
+    isConvertToRequirement: true,
+    requirementId: RID_AUTO_F,
+  });
+  ok(r.status === 201, "建单即转需求（不给需求内容）→ 201", `status=${r.status}`);
+  woF = r.data && r.data.id;
+  const list = await req("GET", `/api/requirements?keyword=${encodeURIComponent(RID_AUTO_F)}`);
+  reqAutoF = list.data[0] && list.data[0].id;
+  const auto = list.data[0] || {};
+  ok(
+    auto.content == null,
+    "需求内容留空即为空（不再回退成工单标题）",
+    `content=${JSON.stringify(auto.content)}`,
+  );
+  ok(auto.title === `WO-F ${TAG}`, "标题仍同步自工单标题（不受内容为空影响）", String(auto.title));
+}
 // 13. 再次保存同一工单（需求ID 未变）→ 不重复创建需求
 {
   const r = await req("PUT", `/api/work-orders/${woC}`, { remark: "二次保存" });
@@ -315,7 +338,7 @@ console.log("== 工单转需求 convert ==");
   ok(after.data.requirementId == null, "被拒后不产生半成品（工单需求ID 仍为空）", String(after.data.requirementId));
   ok(after.data.isConvertToRequirement === false, "被拒后工单转需求标记仍为 false");
 }
-// 22b. 弹框路径：入参带需求ID → 201，编号取入参并回写工单
+// 22b. 弹框路径：入参带需求ID（不带需求内容）→ 201，编号取入参并回写工单，内容为空
 {
   const RID_MODAL = `R-${YEAR}-CV2${TAG}`;
   const r = await req("POST", `/api/work-orders/${woD}/convert`, { requirementId: RID_MODAL });
@@ -326,17 +349,45 @@ console.log("== 工单转需求 convert ==");
   ok(r.data.workOrder.isConvertToRequirement === true, "工单置转需求标记 true（入参路径）");
   ok(r.data.requirement.title === `WO-D ${TAG}`, "需求标题同步自工单标题（入参路径）");
   ok(r.data.requirement.workOrderId === woD, "需求回指来源工单（入参路径）");
+  ok(
+    r.data.requirement.content == null,
+    "未传需求内容且工单无内容 → 需求内容为空（不回退标题）",
+    `content=${JSON.stringify(r.data.requirement.content)}`,
+  );
 }
-// 23. 兼容路径：入参未传时退回工单已登记的需求ID
+// 22c. 弹框路径：入参带需求内容 → 需求内容取入参，并回写工单
+{
+  const RID_MODAL_G = `R-${YEAR}-CV3${TAG}`;
+  const CONTENT_G = "冒烟：弹框填写的需求内容";
+  const c = await req("POST", "/api/work-orders", {
+    date: WO_DATE,
+    title: `WO-G ${TAG}`,
+    content: "冒烟：弹框带内容",
+  });
+  woG = c.data && c.data.id;
+  const r = await req("POST", `/api/work-orders/${woG}/convert`, {
+    requirementId: RID_MODAL_G,
+    requirementContent: CONTENT_G,
+  });
+  ok(r.status === 201, "convert 入参带需求内容 → 201", `status=${r.status}`);
+  reqConvG = r.data.requirement.id;
+  ok(r.data.requirement.content === CONTENT_G, "需求内容 = 入参需求内容", String(r.data.requirement.content));
+  ok(r.data.workOrder.requirementContent === CONTENT_G, "入参需求内容回写到工单", String(r.data.workOrder.requirementContent));
+}
+// 23. 兼容路径：入参未传时退回工单已登记的需求ID 与需求内容
 {
   const RID_CONV = `R-${YEAR}-CV${TAG}`;
+  const CONTENT_B = "冒烟：工单B 上登记的 需求内容";
   const c = await req("POST", "/api/work-orders", {
     date: WO_DATE,
     title: `WO-B ${TAG}`,
     content: "冒烟：工单B",
   });
   woB = c.data && c.data.id;
-  const set = await req("PUT", `/api/work-orders/${woB}`, { requirementId: RID_CONV });
+  const set = await req("PUT", `/api/work-orders/${woB}`, {
+    requirementId: RID_CONV,
+    requirementContent: CONTENT_B,
+  });
   ok(set.status === 200 && set.data.requirementId === RID_CONV, "工单登记需求ID → 200");
 
   const r = await req("POST", `/api/work-orders/${woB}/convert`, {});
@@ -344,6 +395,7 @@ console.log("== 工单转需求 convert ==");
   reqConv = r.data && r.data.requirement && r.data.requirement.id;
   ok(!!reqConv, "convert 返回新需求");
   ok(r.data.requirement.requirementId === RID_CONV, "需求编号 = 工单登记的需求ID", String(r.data.requirement.requirementId));
+  ok(r.data.requirement.content === CONTENT_B, "需求内容 = 工单登记的需求内容", String(r.data.requirement.content));
   ok(r.data.requirement.title === `WO-B ${TAG}`, "需求标题同步自工单标题");
   ok(r.data.requirement.currentNode === "方案中", "转换需求节点默认 方案中");
   ok(r.data.requirement.workOrderId === woB, "需求回指来源工单");
@@ -367,6 +419,22 @@ console.log("== 工单转需求 convert ==");
   ok(r.status === 409, "入参需求ID 已被占用 → 409", `status=${r.status}`);
   const after = await req("GET", `/api/work-orders/${woE}`);
   ok(after.data.isConvertToRequirement === false, "撞号被拒后工单标记仍为 false");
+}
+// 24c. 弹框路径：入参需求内容为空串 → 显式清空（需求内容为 null，不回退标题）
+{
+  const RID_MODAL_E = `R-${YEAR}-CV4${TAG}`;
+  const r = await req("POST", `/api/work-orders/${woE}/convert`, {
+    requirementId: RID_MODAL_E,
+    requirementContent: "",
+  });
+  ok(r.status === 201, "入参需求内容为空串 → 201（不可与原 409 混淆）", `status=${r.status}`);
+  reqConvE = r.data.requirement.id;
+  ok(
+    r.data.requirement.content == null,
+    "入参需求内容为空串 → 需求内容为空（不回退标题）",
+    `content=${JSON.stringify(r.data.requirement.content)}`,
+  );
+  ok(r.data.workOrder.requirementId === RID_MODAL_E, "清空场景下编号仍正确回写工单");
 }
 // 25. convert 不存在工单 → 404
 {
@@ -418,15 +486,25 @@ console.log("== 删除与一致性 ==");
   ok(r1.status === 204, "清理独立需求 → 204（不留残留）", `status=${r1.status}`);
   const r2 = await req("DELETE", `/api/requirements/${reqAuto}`);
   ok(r2.status === 204, "清理自动同步需求 → 204（不留残留）", `status=${r2.status}`);
+  const r2b = await req("DELETE", `/api/requirements/${reqAutoF}`);
+  ok(r2b.status === 204, "清理自动同步需求（无内容）→ 204", `status=${r2b.status}`);
   const r3 = await req("DELETE", `/api/work-orders/${woC}`);
   ok(r3.status === 204, "清理工单C → 204", `status=${r3.status}`);
-  // 工单D 已按弹框路径转出需求，须先删需求再删工单
+  const r3b = await req("DELETE", `/api/work-orders/${woF}`);
+  ok(r3b.status === 204, "清理工单F → 204", `status=${r3b.status}`);
+  // 工单D/E/G 已按弹框路径转出需求，须先删需求再删工单
   const r4 = await req("DELETE", `/api/requirements/${reqConvD}`);
   ok(r4.status === 204, "清理弹框路径转出的需求 → 204", `status=${r4.status}`);
   const r5 = await req("DELETE", `/api/work-orders/${woD}`);
   ok(r5.status === 204, "清理工单D → 204", `status=${r5.status}`);
-  const r6 = await req("DELETE", `/api/work-orders/${woE}`);
-  ok(r6.status === 204, "清理工单E → 204", `status=${r6.status}`);
+  const r6 = await req("DELETE", `/api/requirements/${reqConvE}`);
+  ok(r6.status === 204, "清理工单E 转出的需求 → 204", `status=${r6.status}`);
+  const r7 = await req("DELETE", `/api/work-orders/${woE}`);
+  ok(r7.status === 204, "清理工单E → 204", `status=${r7.status}`);
+  const r8 = await req("DELETE", `/api/requirements/${reqConvG}`);
+  ok(r8.status === 204, "清理工单G 转出的需求 → 204", `status=${r8.status}`);
+  const r9 = await req("DELETE", `/api/work-orders/${woG}`);
+  ok(r9.status === 204, "清理工单G → 204", `status=${r9.status}`);
 }
 
 console.log(failures === 0 ? "\n全部用例通过 ✅" : `\n${failures} 项失败 ❌`);

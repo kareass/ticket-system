@@ -7,8 +7,9 @@ import { isPrismaUnique, recomputeDevDays } from "@/lib/server/helpers";
  *
  * 规则：
  * - 需求ID 取工单上填写的 `requirementId`，必填；为空 → 400（不填不能完成转需求）。
- * - 新建需求：日期取工单日期、标题取工单标题、内容取工单「需求内容」（留空则取工单标题）、
+ * - 新建需求：日期取工单日期、标题取工单标题、内容取工单「需求内容」、
  *   系统取工单系统、节点默认「方案中」、开发时长按 日期→今天 重算、workOrderId 回指工单。
+ * - 需求内容**不做兜底**：工单上没填就落空（null），不再回退成工单标题。
  * - 已关联需求：仅当工单上的需求ID 被改动时同步改名（撞号 → 409），不重复创建。
  * - 需求ID 被其它需求占用 → 409（提示更换）。
  *
@@ -59,13 +60,15 @@ export async function syncRequirementForWorkOrder(
   }
 
   const dateStr = wo.date.toISOString().slice(0, 10);
+  // 需求内容：工单上填了什么就是什么，为空即落空（不做「取标题」兜底）
+  const content = (wo.requirementContent ?? "").trim();
   try {
     const created = await tx.requirement.create({
       data: {
         requirementId: targetId,
         date: wo.date, // 日期取工单日期
         title: wo.title, // 标题取工单标题
-        content: wo.requirementContent || wo.title, // 需求内容，留空取工单标题
+        ...(content ? { content } : {}), // 需求内容；空 → 不写该列（落 null）
         system: wo.system,
         currentNode: "方案中",
         isUrgent: false,

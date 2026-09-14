@@ -66,6 +66,10 @@ export default function EditWorkOrderPage() {
         system: values.system,
         isConvertToRequirement: values.isConvertToRequirement,
         status: values.status,
+        // 需求ID/需求内容必须一并下发：漏传时开关为「是」会被后端以「需求ID 必填」拒绝，
+        // 也会导致「改编号同步改名」等操作无法生效
+        requirementId: values.requirementId,
+        requirementContent: values.requirementContent,
         remark: values.remark,
       });
       message.success("工单已更新");

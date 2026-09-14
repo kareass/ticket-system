@@ -44,7 +44,7 @@
   "status": "新建",                 // 默认「新建」，须在枚举内
   "isConvertToRequirement": false, // 默认 false
   "requirementId": "R-2026-006",   // 需求ID；isConvertToRequirement=true 时必填
-  "requirementContent": "……",      // 需求内容；留空则建需求时取工单标题
+  "requirementContent": "……",      // 需求内容；留空则建出的需求内容也为空（不做兜底）
   "remark": "可选"
 }
 ```
@@ -112,15 +112,17 @@
 请求体（可空）：
 ```jsonc
 {
-  "requirementId": "R-2026-006"  // 本次转出的需求ID；列表「转需求」弹框即传此项。
-                                 // 不传 / 传空串 → 退回工单上已登记的 requirementId
+  "requirementId": "R-2026-006",   // 本次转出的需求ID；列表「转需求」弹框即传此项。
+                                   // 不传 → 退回工单上已登记的 requirementId
+  "requirementContent": "……"       // 本次转出的需求内容；不传 → 退回工单上已存的 requirementContent
+                                   // 传空串 "" → 显式清空（需求内容落 null），与「不传」语义不同
 }
 ```
 逻辑：
 1. 工单不存在 → `404`；
 2. 已转需求（`isConvertToRequirement=true` 或已有关联需求）→ `409`；
 3. 最终需求ID（入参优先，其次工单已登记值）为空 → `400`（**需求ID 必填，不填不能完成转需求**）；校验失败不产生任何写入；
-4. **事务内**：入参传入的 `requirementId` 先写回工单（保证工单与需求两侧编号一致），再据此创建需求 —— 日期取工单日期、标题取工单标题、内容取工单 `requirementContent`（留空则取标题）、系统取工单系统、`currentNode=方案中`、`developmentDays` 按 `date→今天` 计算、`workOrderId` 指向该工单、`remark` 注明来源；最后置工单 `isConvertToRequirement=true`。
+4. **事务内**：入参的 `requirementId` / `requirementContent` 先写回工单（保证工单与需求两侧一致），再据此创建需求 —— 日期取工单日期、标题取工单标题、内容取工单 `requirementContent`（**为空即落空，不做任何兜底**）、系统取工单系统、`currentNode=方案中`、`developmentDays` 按 `date→今天` 计算、`workOrderId` 指向该工单、`remark` 注明来源；最后置工单 `isConvertToRequirement=true`。
 
 响应：`201` → `{ "requirement": Requirement, "workOrder": WorkOrder }`；`400` 未填需求ID；`404`；`409`（已转 / 编号被占用）
 
@@ -134,4 +136,4 @@
 | 204 | 删除成功（无响应体） |
 
 ## 自动化测试
-`node scripts/api-smoke.mjs` —— 需先启动 dev server；覆盖全部 CRUD、需求ID 同步（必填/改名/撞号/锁定）、convert 入参与退回两条路径、409/404/400、发版联动、开发时长重算、来源链接与删除一致性（91 项断言全绿，运行后自动清理测试数据）。
+`node scripts/api-smoke.mjs` —— 需先启动服务（dev 或生产均可）；覆盖全部 CRUD、需求ID 同步（必填/改名/撞号/锁定）、convert 入参与退回两条路径、需求内容空值语义（不传/空串/无内容均不回退标题）、409/404/400、发版联动、开发时长重算、来源链接与删除一致性（107 项断言全绿，运行后自动清理测试数据）。
