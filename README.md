@@ -39,14 +39,16 @@ npm run dev                   # 启动，访问 http://localhost:3000
 
 ## 部署
 
-Linux 服务器上一键完成「拉代码 → 装依赖 → 迁移 → 构建 → 平滑重载」：
+**Linux 服务器**：一键完成「拉代码 → 装依赖 → 迁移 → 构建 → 平滑重载」：
 
 ```bash
 cp .env.example .env && vi .env    # 确认 DATABASE_URL
 bash deploy.sh
 ```
 
-详见 **[docs/部署指南.md](docs/部署指南.md)**（含环境要求、FAQ、部署检查清单）。
+**Windows（本地 / 内网单机）**：装好 Node.js 后，`npm ci` → `Copy-Item .env.example .env` → `npx prisma migrate deploy` → `npm run dev`，浏览器访问 http://localhost:3000。
+
+详见 **[docs/部署指南.md](docs/部署指南.md)** —— 第二、三节 Linux 服务器，**第四节 Windows 部署**（含双击启动的 .bat、局域网共享、开机自启、Windows 常见坑），另有环境要求、FAQ、部署检查清单。
 
 ## 文档
 
@@ -54,7 +56,7 @@ bash deploy.sh
 |------|------|
 | [四川物流工单系统-设计方案.md](docs/四川物流工单系统-设计方案.md) | **项目唯一权威设计文档**（数据模型、功能清单、实施环节） |
 | [用户手册.md](docs/用户手册.md) | 面向使用者的操作指南与字段说明表 |
-| [部署指南.md](docs/部署指南.md) | 环境要求、部署步骤、检查清单、FAQ |
+| [部署指南.md](docs/部署指南.md) | 环境要求、Linux 服务器部署、**Windows 本地部署**、检查清单、FAQ |
 | [API-接口文档.md](docs/API-接口文档.md) | 接口契约、枚举、错误码、开发时长规则 |
 | [测试报告-环节6.md](docs/测试报告-环节6.md) | 功能测试、性能数据、Bug 修复记录 |
 
