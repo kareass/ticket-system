@@ -15,6 +15,12 @@
  * 布局非默认时，表格上方右侧出现「还原默认列布局」小按钮，一键清空恢复。
  * 存储格式：`protable:layout:<key>` → `{ order: string[], widths: Record<string, number> }`
  * （固定列不参与排序/调宽，故不入存储）。
+ *
+ * 另外会接管**每页条数**：默认 10，可选 10/20/30/50/100，用户的选择存入
+ * `protable:pageSize:<key>`（与列布局分开存，避免影响「还原默认列布局」的语义 ——
+ * 合并的话，仅改过条数的用户也会看到该按钮，点它还会连条数一起重置）。
+ * 只接管 pageSize，**不接管当前页码** —— 排序后仍停留当前页。
+ * 若调用方显式传了 pagination.pageSize，则以调用方为准，本组件不介入。
  */
 import React, {
   useCallback,
@@ -32,6 +38,10 @@ import { ReloadOutlined } from "@ant-design/icons";
 import type { ColumnType, ColumnsType, TableProps } from "antd/es/table";
 
 type RecordTypeOf = object;
+
+/** 每页条数可选档位。必须包含默认值 10，否则 antd 的 Select 无法高亮当前项 */
+const PAGE_SIZE_CHOICES = [10, 20, 30, 50, 100];
+const DEFAULT_PAGE_SIZE = 10;
 
 export interface ProTableProps<RecordType extends RecordTypeOf>
   extends Omit<TableProps<RecordType>, "columns" | "components"> {
@@ -195,6 +205,7 @@ export default function ProTable<RecordType extends RecordTypeOf>({
   columns,
   minColumnWidth = 60,
   layoutStorageKey,
+  pagination,
   ...rest
 }: ProTableProps<RecordType>) {
   // 拆分：可排序普通列 + 固定右侧列（操作列等，始终钉在最右）
@@ -288,6 +299,57 @@ export default function ProTable<RecordType extends RecordTypeOf>({
       // 隐私模式/配额满时静默降级为不持久化
     }
   }, [storageKey, order, widths]);
+
+  // —— 每页条数：与列布局分开的独立存档（原因见文件头说明）——
+  const pageSizeStorageKey = layoutStorageKey
+    ? `protable:pageSize:${layoutStorageKey}`
+    : undefined;
+
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const pageSizeRestoredRef = useRef(false);
+
+  // 挂载后一次性恢复（与列布局同理，放 effect 防 SSR hydration 错位）
+  useEffect(() => {
+    if (!pageSizeStorageKey) return;
+    try {
+      const raw = window.localStorage.getItem(pageSizeStorageKey);
+      const n = raw === null ? NaN : Number(raw);
+      // 只接受白名单内的档位；存档被篡改或来自旧版本时一律退回默认
+      if (PAGE_SIZE_CHOICES.includes(n)) setPageSize(n);
+    } catch {
+      // 隐私模式等场景下静默降级为不持久化
+    }
+    pageSizeRestoredRef.current = true;
+  }, [pageSizeStorageKey]);
+
+  // 变动即写回
+  useEffect(() => {
+    if (!pageSizeStorageKey || !pageSizeRestoredRef.current) return;
+    try {
+      window.localStorage.setItem(pageSizeStorageKey, String(pageSize));
+    } catch {
+      /* 忽略 */
+    }
+  }, [pageSizeStorageKey, pageSize]);
+
+  /**
+   * 合并分页配置：本组件提供默认值，调用方传入的同名字段优先。
+   * 调用方显式给了 pageSize 时整体让位（不接管、也不持久化），避免两处状态打架。
+   * 不设 current —— 保持非受控，排序后仍停留当前页。
+   */
+  const mergedPagination = useMemo(() => {
+    if (pagination === false) return false;
+    const caller =
+      pagination && typeof pagination === "object" ? pagination : undefined;
+    if (caller?.pageSize !== undefined) return caller;
+    return {
+      pageSize,
+      showSizeChanger: true,
+      pageSizeOptions: PAGE_SIZE_CHOICES.map(String),
+      onShowSizeChange: (_current: number, size: number) => setPageSize(size),
+      ...(caller ?? {}),
+    };
+  }, [pagination, pageSize]);
 
   /** 一键还原：列序回默认、清空列宽，并删掉存档 */
   const handleResetLayout = useCallback(() => {
@@ -405,6 +467,7 @@ export default function ProTable<RecordType extends RecordTypeOf>({
       <Table<RecordType>
         {...rest}
         columns={displayColumns}
+        pagination={mergedPagination}
         components={components}
       />
     </>
