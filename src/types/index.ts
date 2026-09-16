@@ -12,7 +12,9 @@
 // 想新增一个下拉选项：**只改下面数组里的一行**。
 //   - 数组声明为 as const，联合类型由数组自动推导（typeof ARR[number]），
 //     不必再手改类型定义；
-//   - 配色表是 Record<联合类型, string>，漏加配色会直接编译报错，不会静默失败；
+//   - 节点与工单状态的配色表是 Record<联合类型, string>，漏加配色会直接编译报错；
+//     但系统的配色表 SYSTEM_COLORS 是宽松的 Record<string, string>，漏加**不会**报错，
+//     会静默退回默认色（该表当前未被消费，见其定义处的说明）；
 //   - 无需数据库迁移：schema.prisma 中这些字段是普通 String 列，不是数据库枚举。
 //
 // ⚠️ 需求节点 NODE_OPTIONS 的五种取值写死在设计文档里，增删节点属于需求变更，
@@ -20,7 +22,7 @@
 // ============================================================================
 
 /** 系统（工单表 / 需求表共用） */
-export const SYSTEM_OPTIONS = ["WMS", "ERP", "OMS", "TMS", "其他"] as const;
+export const SYSTEM_OPTIONS = ["WMS", "ERP", "TMS", "SCM", "追溯中心", "其他"] as const;
 export type SystemValue = (typeof SYSTEM_OPTIONS)[number];
 
 /** 工单状态（预留扩展，以设计文档为准：新建/已处理/已关闭） */
@@ -62,8 +64,9 @@ export function asSelectOptions<T extends string>(
 export const SYSTEM_COLORS: Record<string, string> = {
   WMS: "blue",
   ERP: "purple",
-  OMS: "cyan",
   TMS: "orange",
+  SCM: "green",
+  追溯中心: "magenta",
   其他: "gold",
 };
 

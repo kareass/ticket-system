@@ -77,7 +77,7 @@ interface WorkOrderFormFields {
 const WIDTH = {
   /** 日期：YYYY-MM-DD */
   date: 160,
-  /** 系统：WMS / ERP / OMS / TMS / 其他 */
+  /** 系统：WMS / ERP / TMS / SCM / 追溯中心 / 其他 */
   system: 160,
   /** 工单状态：新建 / 已处理 / 已关闭 */
   status: 160,

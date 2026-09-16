@@ -123,7 +123,7 @@ function SystemSelectFormField(props: {
 const WIDTH = {
   /** 日期 / 发版时间：YYYY-MM-DD */
   date: 160,
-  /** 系统：WMS / ERP / OMS / TMS / 其他 */
+  /** 系统：WMS / ERP / TMS / SCM / 追溯中心 / 其他 */
   system: 160,
   /** 当前节点：方案中 / 开发中 / 测试中 / 已合并 / 已发布 */
   currentNode: 180,
