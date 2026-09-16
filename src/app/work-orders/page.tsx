@@ -376,8 +376,6 @@ export default function WorkOrderListPage() {
         scroll={{ x: 1510 }}
         layoutStorageKey="work-orders"
         pagination={{
-          pageSize: 10,
-          showSizeChanger: false,
           showTotal: (total) => `共 ${total} 条`,
         }}
       />

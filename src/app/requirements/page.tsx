@@ -394,8 +394,6 @@ export default function RequirementListPage() {
         scroll={{ x: 1560 }}
         layoutStorageKey="requirements"
         pagination={{
-          pageSize: 10,
-          showSizeChanger: false,
           showTotal: (total) => `共 ${total} 条`,
         }}
       />
