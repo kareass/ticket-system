@@ -86,9 +86,14 @@ export async function PUT(req: Request, { params }: Ctx) {
   }
   if (body.system !== undefined) {
     const system = asTrimmed(body.system);
-    if (!system || !SYSTEMS.includes(system)) {
+    // 规则同工单路由：值未变更时跳过枚举校验
+    if (!system) {
       errors.push(`system 须为以下之一：${SYSTEMS.join(" / ")}。`);
-    } else data.system = system;
+    } else if (system !== existing.system && !SYSTEMS.includes(system)) {
+      errors.push(`system 须为以下之一：${SYSTEMS.join(" / ")}。`);
+    } else {
+      data.system = system;
+    }
   }
   if (body.currentNode !== undefined) {
     const currentNode = asTrimmed(body.currentNode);

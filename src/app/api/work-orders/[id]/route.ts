@@ -68,9 +68,16 @@ export async function PUT(req: Request, { params }: Ctx) {
   }
   if (body.system !== undefined) {
     const system = asTrimmed(body.system);
-    if (!system || !SYSTEMS.includes(system)) {
+    // 与库中现值相同 → 视为未变更，跳过枚举校验。
+    // 这样管理员删掉某个系统选项后，存量记录的其它字段仍能正常保存；
+    // 但把该字段改成枚举外的**新**值仍会被拦下。
+    if (!system) {
       errors.push(`system 须为以下之一：${SYSTEMS.join(" / ")}。`);
-    } else data.system = system;
+    } else if (system !== existing.system && !SYSTEMS.includes(system)) {
+      errors.push(`system 须为以下之一：${SYSTEMS.join(" / ")}。`);
+    } else {
+      data.system = system;
+    }
   }
   if (body.isConvertToRequirement !== undefined) {
     const flag = asBool(body.isConvertToRequirement);
@@ -79,9 +86,14 @@ export async function PUT(req: Request, { params }: Ctx) {
   }
   if (body.status !== undefined) {
     const status = asTrimmed(body.status);
-    if (!status || !WORK_ORDER_STATUSES.includes(status)) {
+    // 规则同 system —— 工单状态同样可由管理员增删，存在完全相同的隐患
+    if (!status) {
       errors.push(`status 须为以下之一：${WORK_ORDER_STATUSES.join(" / ")}。`);
-    } else data.status = status;
+    } else if (status !== existing.status && !WORK_ORDER_STATUSES.includes(status)) {
+      errors.push(`status 须为以下之一：${WORK_ORDER_STATUSES.join(" / ")}。`);
+    } else {
+      data.status = status;
+    }
   }
   if (body.remark !== undefined) {
     data.remark = asTrimmed(body.remark) || null;
