@@ -16,6 +16,7 @@
     "db:migrate": "prisma migrate deploy",
     "db:init": "bash scripts/db-init.sh",
     "db:seed": "tsx prisma/seed.ts",
+    "db:backup": "node scripts/backup-db.mjs",
     "db:reset": "prisma migrate reset --force",
     "check:env": "node scripts/check-env.mjs",
     "api:smoke": "node scripts/api-smoke.mjs",
