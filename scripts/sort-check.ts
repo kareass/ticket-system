@@ -104,6 +104,7 @@ const byNode = [
   req({ id: "已发布", currentNode: "已发布" }),
   req({ id: "方案中", currentNode: "方案中" }),
   req({ id: "已合并", currentNode: "已合并" }),
+  req({ id: "测试完毕", currentNode: "测试完毕" }),
   req({ id: "开发中", currentNode: "开发中" }),
   req({ id: "测试中", currentNode: "测试中" }),
 ];
@@ -111,12 +112,14 @@ check("升序=流程推进方向", ids(byNode, "currentNode", "ascend"), [
   "方案中",
   "开发中",
   "测试中",
+  "测试完毕",
   "已合并",
   "已发布",
 ]);
 check("降序=流程倒序", ids(byNode, "currentNode", "descend"), [
   "已发布",
   "已合并",
+  "测试完毕",
   "测试中",
   "开发中",
   "方案中",

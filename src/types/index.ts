@@ -34,6 +34,7 @@ export const NODE_OPTIONS = [
   "方案中",
   "开发中",
   "测试中",
+  "测试完毕",
   "已合并",
   "已发布",
 ] as const;
@@ -82,6 +83,7 @@ export const NODE_COLORS: Record<RequirementNode, string> = {
   方案中: "default",
   开发中: "processing",
   测试中: "warning",
+  测试完毕: "geekblue",
   已合并: "cyan",
   已发布: "success",
 };
