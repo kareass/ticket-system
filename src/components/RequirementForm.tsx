@@ -118,7 +118,7 @@ function SystemSelectFormField(props: {
 
 /**
  * 下拉框/日期选择器宽度（px）：按选项文案实际长度取值。
- * 表单容器统一 640px，控件不再一律撑满，避免仅 2~5 个字的下拉框被拉成整行。
+ * 表单容器统一 960px，控件不再一律撑满，避免仅 2~5 个字的下拉框被拉成整行。
  */
 const WIDTH = {
   /** 日期 / 发版时间：YYYY-MM-DD */
@@ -243,8 +243,8 @@ export default function RequirementForm({
 
   return (
     <Card title={cardTitle}>
-      {/* 限制表单列宽，避免整卡宽度下输入框过长 */}
-      <div style={{ maxWidth: 640 }}>
+      {/* 限制表单列宽，避免整卡宽度下输入框过长；当前 960px */}
+      <div style={{ maxWidth: 960 }}>
         <Form<RequirementFormFields>
           form={form}
           layout="vertical"
@@ -293,7 +293,7 @@ export default function RequirementForm({
 
           <Form.Item label="需求内容" name="content">
             <Input.TextArea
-              rows={3}
+              rows={6}
               placeholder="选填，描述需求背景、范围与验收期望"
             />
           </Form.Item>
@@ -357,7 +357,7 @@ export default function RequirementForm({
 
           <Form.Item label="备注" name="remark">
             <Input.TextArea
-              rows={2}
+              rows={4}
               placeholder="选填，补充说明（如关联工单、经办人等）"
             />
           </Form.Item>

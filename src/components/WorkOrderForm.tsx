@@ -72,7 +72,7 @@ interface WorkOrderFormFields {
 
 /**
  * 下拉框/日期选择器宽度（px）：按选项文案实际长度取值。
- * 表单容器统一 640px，控件不再一律撑满，避免仅 2~5 个字的下拉框被拉成整行。
+ * 表单容器统一 960px，控件不再一律撑满，避免仅 2~5 个字的下拉框被拉成整行。
  */
 const WIDTH = {
   /** 日期：YYYY-MM-DD */
@@ -204,8 +204,8 @@ export default function WorkOrderForm({
 
   return (
     <Card title={cardTitle}>
-      {/* 限制表单列宽，避免整卡宽度下输入框过长 */}
-      <div style={{ maxWidth: 640 }}>
+      {/* 限制表单列宽，避免整卡宽度下输入框过长；当前 960px */}
+      <div style={{ maxWidth: 960 }}>
         <Form<WorkOrderFormFields>
           form={form}
           layout="vertical"
@@ -240,7 +240,7 @@ export default function WorkOrderForm({
             ]}
           >
             <Input.TextArea
-              rows={4}
+              rows={8}
               placeholder="请描述工单内容、背景与期望结果"
             />
           </Form.Item>
@@ -325,7 +325,7 @@ export default function WorkOrderForm({
             extra="转需求时同步到需求表；留空则需求内容也为空（不会自动取标题）"
           >
             <Input.TextArea
-              rows={3}
+              rows={6}
               disabled={!convertOn}
               placeholder={
                 convertOn ? "选填，描述需求背景与验收期望" : "请先开启「是否转需求」"
@@ -335,7 +335,7 @@ export default function WorkOrderForm({
 
           <Form.Item label="备注" name="remark">
             <Input.TextArea
-              rows={2}
+              rows={4}
               placeholder="选填，补充说明（如关联业务、经办人等）"
             />
           </Form.Item>
