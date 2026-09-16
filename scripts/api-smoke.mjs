@@ -115,6 +115,31 @@ console.log("== 工单 CRUD ==");
   const r = await req("PUT", `/api/work-orders/${woA}`, { status: "乱写" });
   ok(r.status === 400, "更新非法状态 → 400", `status=${r.status}`);
 }
+// 7a-1. 枚举兼容保险：传未变更的合法 system 仍可保存（回归）
+{
+  const cur = await req("GET", `/api/work-orders/${woA}`);
+  const r = await req("PUT", `/api/work-orders/${woA}`, {
+    system: cur.data.system,
+    remark: "保险回归",
+  });
+  ok(r.status === 200, "传未变更的 system → 200（回归）", `status=${r.status}`);
+}
+// 7a-2. 枚举兼容保险：改成枚举外的新值仍 400
+{
+  const r = await req("PUT", `/api/work-orders/${woA}`, {
+    system: "不存在的系统",
+  });
+  ok(r.status === 400, "改成枚举外的 system → 400", `status=${r.status}`);
+}
+// 7a-3. 枚举兼容保险：传未变更的合法 status 仍可保存（回归）
+{
+  const cur = await req("GET", `/api/work-orders/${woA}`);
+  const r = await req("PUT", `/api/work-orders/${woA}`, {
+    status: cur.data.status,
+    remark: "保险回归2",
+  });
+  ok(r.status === 200, "传未变更的 status → 200（回归）", `status=${r.status}`);
+}
 // 7b. 回归：清空可选字段（备注）需真正下发（前端传空串 → 后端置空）
 {
   await req("PUT", `/api/work-orders/${woA}`, { remark: "临时备注" });
@@ -182,6 +207,21 @@ const RID_B = `R-${YEAR}-SM${TAG}b`;
   ok(r.data.currentNode === "测试中" && r.data.isUrgent === true, "节点/加急写入正确");
   ok(typeof r.data.developmentDays === "number" && r.data.developmentDays > 0, "developmentDays 服务端重算(>0)", String(r.data.developmentDays));
   ok(r.data.developmentDays !== 999, "忽略提交的 developmentDays");
+}
+// 9b. 枚举兼容保险：需求侧 system 传未变更值仍可保存（回归）
+{
+  const r = await req("PUT", `/api/requirements/${reqStandalone}`, {
+    system: "WMS",
+    remark: "保险回归3",
+  });
+  ok(r.status === 200, "需求传未变更的 system → 200（回归）", `status=${r.status}`);
+}
+// 9c. 枚举兼容保险：需求侧 system 改成枚举外的新值仍 400
+{
+  const r = await req("PUT", `/api/requirements/${reqStandalone}`, {
+    system: "不存在的系统",
+  });
+  ok(r.status === 400, "需求改枚举外的 system → 400", `status=${r.status}`);
 }
 // 10. requirementId 撞号 → 409
 {
