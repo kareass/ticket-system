@@ -29,6 +29,8 @@ import { formatDate, today } from "@/lib/utils";
 import { toErrorMessage } from "@/lib/errors";
 import ProTable from "@/components/common/ProTable";
 import EditableChip from "@/components/common/EditableChip";
+import SortableHeader from "@/components/common/SortableHeader";
+import { createComparator, type SortState } from "@/lib/sortRows";
 import { useRowDrafts } from "@/lib/useRowDrafts";
 
 // 配色与选项均唯一来源 src/types（新增选项时只改那一处）
@@ -56,6 +58,8 @@ export default function RequirementListPage() {
 
   const [keyword, setKeyword] = useState("");
   const [node, setNode] = useState<RequirementNode | undefined>(undefined);
+  // 排序状态：null = 未排序，保持后端返回的 createdAt 倒序
+  const [sort, setSort] = useState<SortState<Requirement> | null>(null);
 
   // 草稿状态：修改后需显式点提交才落库
   const drafts = useRowDrafts<Requirement>();
@@ -78,6 +82,34 @@ export default function RequirementListPage() {
       return hitText && hitNode;
     });
   }, [requirements, keyword, node]);
+
+  // 双击列头：升序 → 降序 → 取消（回到默认的创建时间倒序）
+  const handleSortToggle = (field: keyof Requirement) => {
+    setSort((prev) => {
+      if (!prev || prev.field !== field) return { field, order: "ascend" };
+      if (prev.order === "ascend") return { field, order: "descend" };
+      return null;
+    });
+  };
+
+  // 排序作用在已提交值上（在 drafts.merge 之前）：
+  // 未提交的内联草稿不参与排序，避免用户编辑时那一行跳走。
+  const sortedRequirements = useMemo(() => {
+    if (!sort) return filteredRequirements;
+    return [...filteredRequirements].sort(
+      createComparator<Requirement>(sort.field, sort.order),
+    );
+  }, [filteredRequirements, sort]);
+
+  // 列头工厂：给可排序的列统一挂上双击行为
+  const sortableTitle = (label: string, field: keyof Requirement) => (
+    <SortableHeader<Requirement>
+      label={label}
+      field={field}
+      sort={sort}
+      onToggle={handleSortToggle}
+    />
+  );
 
   // 提交：先确认，再把全部草稿逐个写入后端（全成功才清空草稿）
   const handleCommit = () => {
@@ -107,7 +139,7 @@ export default function RequirementListPage() {
       width: 130,
     },
     {
-      title: "日期",
+      title: sortableTitle("日期", "date"),
       dataIndex: "date",
       key: "date",
       width: 110,
@@ -149,7 +181,7 @@ export default function RequirementListPage() {
       },
     },
     {
-      title: "开发时长(天)",
+      title: sortableTitle("开发时长(天)", "developmentDays"),
       dataIndex: "developmentDays",
       key: "developmentDays",
       width: 110,
@@ -157,7 +189,7 @@ export default function RequirementListPage() {
       render: (days?: number) => (typeof days === "number" ? days : "-"),
     },
     {
-      title: "当前节点",
+      title: sortableTitle("当前节点", "currentNode"),
       dataIndex: "currentNode",
       key: "currentNode",
       width: 120,
@@ -176,7 +208,7 @@ export default function RequirementListPage() {
       },
     },
     {
-      title: "是否加急",
+      title: sortableTitle("是否加急", "isUrgent"),
       dataIndex: "isUrgent",
       key: "isUrgent",
       width: 100,
@@ -194,7 +226,7 @@ export default function RequirementListPage() {
       ),
     },
     {
-      title: "是否发版",
+      title: sortableTitle("是否发版", "isReleased"),
       dataIndex: "isReleased",
       key: "isReleased",
       width: 100,
@@ -221,7 +253,7 @@ export default function RequirementListPage() {
       ),
     },
     {
-      title: "发版时间",
+      title: sortableTitle("发版时间", "releaseDate"),
       dataIndex: "releaseDate",
       key: "releaseDate",
       width: 115,
@@ -357,7 +389,7 @@ export default function RequirementListPage() {
       <ProTable<Requirement>
         rowKey="id"
         columns={columns}
-        dataSource={filteredRequirements.map(drafts.merge)}
+        dataSource={sortedRequirements.map(drafts.merge)}
         loading={loading}
         scroll={{ x: 1560 }}
         layoutStorageKey="requirements"
