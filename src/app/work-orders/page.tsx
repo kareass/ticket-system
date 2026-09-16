@@ -18,7 +18,9 @@ import type { ColumnsType } from "antd/es/table";
 import { PlusOutlined, ReloadOutlined, SearchOutlined } from "@ant-design/icons";
 import ProTable from "@/components/common/ProTable";
 import EditableChip from "@/components/common/EditableChip";
+import SortableHeader from "@/components/common/SortableHeader";
 import { useRowDrafts } from "@/lib/useRowDrafts";
+import { createComparator, type SortState } from "@/lib/sortRows";
 import { SYSTEM_OPTIONS, SYSTEM_COLORS, WORK_ORDER_STATUS_COLORS, WORK_ORDER_STATUS_OPTIONS, asSelectOptions } from "@/types";
 import type { WorkOrder, WorkOrderStatus } from "@/types";
 import { useAppStore } from "@/store/store";
@@ -53,6 +55,8 @@ export default function WorkOrderListPage() {
   // 标题搜索关键字 / 系统筛选值（受控，allowClear 清空后为 undefined 表示不过滤）
   const [keyword, setKeyword] = useState("");
   const [system, setSystem] = useState<string | undefined>(undefined);
+  // 排序状态：null = 未排序，保持后端返回的 createdAt 倒序
+  const [sort, setSort] = useState<SortState<WorkOrder> | null>(null);
 
   // 转需求弹框：目标工单 + 待填需求ID / 需求内容 + 提交中
   const [convertTarget, setConvertTarget] = useState<WorkOrder | null>(null);
@@ -75,6 +79,33 @@ export default function WorkOrderListPage() {
       return hitTitle && hitSystem;
     });
   }, [workOrders, keyword, system]);
+
+  // 双击列头：升序 → 降序 → 取消（回到默认的创建时间倒序）
+  const handleSortToggle = (field: keyof WorkOrder) => {
+    setSort((prev) => {
+      if (!prev || prev.field !== field) return { field, order: "ascend" };
+      if (prev.order === "ascend") return { field, order: "descend" };
+      return null;
+    });
+  };
+
+  // 排序作用在已提交值上（在 drafts.merge 之前）
+  const sortedWorkOrders = useMemo(() => {
+    if (!sort) return filteredWorkOrders;
+    return [...filteredWorkOrders].sort(
+      createComparator<WorkOrder>(sort.field, sort.order),
+    );
+  }, [filteredWorkOrders, sort]);
+
+  // 列头工厂：给可排序的列统一挂上双击行为
+  const sortableTitle = (label: string, field: keyof WorkOrder) => (
+    <SortableHeader<WorkOrder>
+      label={label}
+      field={field}
+      sort={sort}
+      onToggle={handleSortToggle}
+    />
+  );
 
   // 系统筛选下拉可选项：唯一来源 src/types，与 SystemSelect 共用
   const systemFilterOptions = asSelectOptions(SYSTEM_OPTIONS);
@@ -140,7 +171,7 @@ export default function WorkOrderListPage() {
       render: (id: string) => workOrderNo(id),
     },
     {
-      title: "日期",
+      title: sortableTitle("日期", "date"),
       dataIndex: "date",
       width: 110,
       render: (_, record) => formatDate(record.date),
@@ -159,7 +190,7 @@ export default function WorkOrderListPage() {
       render: (content?: string) => content || "-",
     },
     {
-      title: "系统",
+      title: sortableTitle("系统", "system"),
       dataIndex: "system",
       width: 100,
       render: (sys: string, record) => (
@@ -200,7 +231,7 @@ export default function WorkOrderListPage() {
       },
     },
     {
-      title: "状态",
+      title: sortableTitle("状态", "status"),
       dataIndex: "status",
       width: 110,
       render: (status: string, record) => (
@@ -340,7 +371,7 @@ export default function WorkOrderListPage() {
       <ProTable<WorkOrder>
         rowKey="id"
         columns={columns}
-        dataSource={filteredWorkOrders.map(drafts.merge)}
+        dataSource={sortedWorkOrders.map(drafts.merge)}
         loading={loading}
         scroll={{ x: 1510 }}
         layoutStorageKey="work-orders"
@@ -389,7 +420,7 @@ export default function WorkOrderListPage() {
 
             <div style={{ marginBottom: 6 }}>需求内容</div>
             <Input.TextArea
-              rows={3}
+              rows={6}
               placeholder="选填，描述需求背景与验收期望"
               value={convertContent}
               onChange={(e) => setConvertContent(e.target.value)}
