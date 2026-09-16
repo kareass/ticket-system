@@ -19,6 +19,7 @@
     "db:backup": "node scripts/backup-db.mjs",
     "db:reset": "prisma migrate reset --force",
     "check:env": "node scripts/check-env.mjs",
+    "check:sort": "tsx scripts/sort-check.ts",
     "api:smoke": "node scripts/api-smoke.mjs",
     "typecheck": "tsc --noEmit",
     "verify": "npm run typecheck && npm run build"
