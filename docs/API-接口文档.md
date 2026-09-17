@@ -95,7 +95,7 @@
 ```jsonc
 {
   "date": "2026-09-05",        // * YYYY-MM-DD
-  "requirementId": "R-2026-001", // * 业务编号，唯一；撞号 → 409
+  "requirementId": "R-2026-001", // 可选，业务编号，全局唯一；撞号 → 409。**带 workOrderId 时必填**（本质是转需求）。
   "title": "……", "content": "……",   // 可选
   "system": "WMS",             // 默认 WMS
   "currentNode": "方案中",      // 默认「方案中」
