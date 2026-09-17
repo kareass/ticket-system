@@ -76,7 +76,7 @@ export default function RequirementListPage() {
     return requirements.filter((req) => {
       const hitText =
         !kw ||
-        req.requirementId.toLowerCase().includes(kw) ||
+        (req.requirementId ?? "").toLowerCase().includes(kw) ||
         (req.title ?? "").toLowerCase().includes(kw);
       const hitNode = !node || req.currentNode === node;
       return hitText && hitNode;
@@ -137,6 +137,7 @@ export default function RequirementListPage() {
       dataIndex: "requirementId",
       key: "requirementId",
       width: 130,
+      render: (requirementId?: string) => requirementId || "-",
     },
     {
       title: sortableTitle("日期", "date"),

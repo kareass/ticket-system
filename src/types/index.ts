@@ -117,8 +117,8 @@ export interface WorkOrder {
 export interface Requirement {
   /** 内部主键（cuid） */
   id: string;
-  /** 需求业务编号（必填、唯一，如 R-2026-001） */
-  requirementId: string;
+  /** 需求业务编号（选填、唯一，如 R-2026-001）；工单转需求时必填 */
+  requirementId?: string;
   /** 日期（必填，日期选择器默认当天） */
   date: string;
   /** 需求标题 */

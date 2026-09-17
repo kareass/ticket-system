@@ -71,11 +71,20 @@ export async function PUT(req: Request, { params }: Ctx) {
     }
   }
   if (body.requirementId !== undefined) {
+    // 三态语义（与项目既有契约一致）：
+    //   undefined（未传）→ 不改该字段
+    //   ""（显式清空）   → 落 null
+    //   非空             → 改名；与现值不同才触发改名侦测
     const requirementId = asTrimmed(body.requirementId);
-    if (!requirementId) errors.push("requirementId 不能为空。");
-    else {
+    if (requirementId) {
       data.requirementId = requirementId;
       if (requirementId !== existing.requirementId) newRequirementId = requirementId;
+    } else {
+      data.requirementId = null;
+      // 刻意**不**设置 newRequirementId —— 清空不应把来源工单上登记的编号
+      // 一并清掉（与「删除需求时保留工单编号、便于按原编号重转」一致）。
+      // newRequirementId 保持空值时，下方的 `if (newRequirementId && ...)`
+      // 也会因空串为假而自然跳过。
     }
   }
   if (body.title !== undefined) {

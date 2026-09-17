@@ -138,7 +138,7 @@ export interface WorkOrderJson {
 
 export interface RequirementJson {
   id: string;
-  requirementId: string;
+  requirementId?: string;
   date: string;
   title?: string;
   content?: string;
@@ -174,7 +174,7 @@ export function toWorkOrderJson(wo: DbWorkOrder): WorkOrderJson {
 export function toRequirementJson(r: DbRequirement): RequirementJson {
   return {
     id: r.id,
-    requirementId: r.requirementId,
+    requirementId: clean(r.requirementId),
     date: dayOnly(r.date) as string,
     title: clean(r.title),
     content: clean(r.content),

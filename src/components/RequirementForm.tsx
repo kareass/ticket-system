@@ -271,18 +271,12 @@ export default function RequirementForm({
             <span style={{ fontSize: 16, fontWeight: 600 }}>{devDays} 天</span>
           </Form.Item>
 
-          <Form.Item
-            label="需求ID"
-            name="requirementId"
-            rules={[
-              { required: true, whitespace: true, message: "请输入需求ID" },
-            ]}
-          >
+          <Form.Item label="需求ID" name="requirementId">
             <Input
               placeholder={
                 mode === "create"
-                  ? "如 R-2026-001（新建需求编号，需唯一）"
-                  : "请输入需求ID"
+                  ? "选填，如 R-2026-001（全局唯一）"
+                  : "选填，留空即清除编号"
               }
             />
           </Form.Item>

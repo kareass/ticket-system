@@ -65,8 +65,10 @@ export async function POST(req: Request) {
   if (!date || !isValidCalendarDay(date)) {
     errors.push("date 必填，格式 YYYY-MM-DD。");
   }
+  // 需求ID 改为选填：手工新建需求可以不填编号。
+  // 是否必填取决于有没有 workOrderId（那本质是「转需求」），故校验下移到
+  // workOrderId 解析之后，见下方 `if (workOrderId && !requirementId)`。
   const requirementId = asTrimmed(body.requirementId);
-  if (!requirementId) errors.push("requirementId 必填（业务编号，需唯一）。");
 
   const system = asTrimmed(body.system) || "WMS";
   if (!SYSTEMS.includes(system)) {
@@ -103,6 +105,12 @@ export async function POST(req: Request) {
   const remark = asTrimmed(body.remark);
   const workOrderId = asTrimmed(body.workOrderId);
 
+  // 带 workOrderId 的请求本质是「转需求」，必须带编号 ——
+  // 与 work-order-sync.ts 的规则保持一致（那里也是 400）。
+  if (workOrderId && !requirementId) {
+    errors.push("转需求时 requirementId 必填（业务编号，需唯一）。");
+  }
+
   if (errors.length) return apiError(400, "参数校验失败。", errors);
 
   // 可选来源工单：校验存在 & 尚未被占用（一对一）
@@ -123,7 +131,10 @@ export async function POST(req: Request) {
   const developmentDays = recomputeDevDays(dateStr, relEnabled, relDateStr);
 
   const data: Prisma.RequirementUncheckedCreateInput = {
-    requirementId: requirementId as string,
+    // 空串（含前端留空）统一落 null —— SQLite 的唯一索引允许多条 NULL，
+    // 但只允许一条空串；否则第二条无编号的需求会被 P2002 报成
+    //「需求ID 已被占用」，语义完全错误。
+    ...(requirementId ? { requirementId } : {}),
     date: toDayUtc(dateStr) as Date,
     // 空串（含前端「清空」语义）统一落 null，避免库中出现空字符串
     ...(title ? { title } : {}),
@@ -157,6 +168,11 @@ export async function POST(req: Request) {
     return NextResponse.json(toRequirementJson(req), { status: 201 });
   } catch (err) {
     if (isPrismaUnique(err)) {
+      // 空值不可能撞号（NULL 在唯一索引中互不相等）；真撞了说明是未预期的
+      // 约束冲突，如实报 500 便于排查，不要冒充「已被占用」误导用户。
+      if (!requirementId) {
+        return apiError(500, "写入失败（未预期的唯一约束冲突）。");
+      }
       return apiError(409, "需求ID 已被占用，请更换。");
     }
     throw err;
