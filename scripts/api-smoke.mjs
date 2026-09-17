@@ -59,7 +59,7 @@ const isDateStr = (v) => typeof v === "string" && CAL.test(v);
 const WO_DATE = "2026-09-05";
 const NO_DATE = (() => new Date().toISOString().slice(0, 10))();
 let woA, woB, woC, woD, woE, woF, woG,
-  reqLink, reqConv, reqConvD, reqConvE, reqConvG, reqAuto, reqAutoF, reqStandalone;
+  reqLink, reqConv, reqConvD, reqConvE, reqConvG, reqAuto, reqAutoF, reqStandalone, reqNoId;
 
 console.log("== 工单 CRUD ==");
 
@@ -185,10 +185,18 @@ console.log("== 需求 CRUD ==");
 const RID_A = `R-${YEAR}-SM${TAG}`;
 const RID_B = `R-${YEAR}-SM${TAG}b`;
 
-// 8. 缺 requirementId → 400
+// 8. 需求ID 选填：不带编号也能建（原为 400）
 {
   const r = await req("POST", "/api/requirements", { date: WO_DATE });
-  ok(r.status === 400, "创建需求缺 requirementId → 400", `status=${r.status}`);
+  ok(r.status === 201, "创建需求不带 requirementId → 201", `status=${r.status}`);
+  ok(r.data.requirementId === undefined, "无编号需求回读 requirementId 为 undefined", String(r.data.requirementId));
+  reqNoId = r.data && r.data.id;
+}
+// 8b. 连续第二条无编号需求也能建 —— 锁住「唯一索引只允许一条空串」那个坑
+{
+  const r = await req("POST", "/api/requirements", { date: WO_DATE });
+  ok(r.status === 201, "第二条无编号需求同样 → 201（回归：空串未伪装成撞号）", `status=${r.status}`);
+  if (r.data && r.data.id) await req("DELETE", `/api/requirements/${r.data.id}`);
 }
 // 9. 正常创建 → 201 + 开发时长自算(>0)
 {
@@ -207,6 +215,14 @@ const RID_B = `R-${YEAR}-SM${TAG}b`;
   ok(r.data.currentNode === "测试中" && r.data.isUrgent === true, "节点/加急写入正确");
   ok(typeof r.data.developmentDays === "number" && r.data.developmentDays > 0, "developmentDays 服务端重算(>0)", String(r.data.developmentDays));
   ok(r.data.developmentDays !== 999, "忽略提交的 developmentDays");
+}
+// 9d. 清空需求编号 → 200，回读为 undefined
+{
+  const r = await req("PUT", `/api/requirements/${reqStandalone}`, { requirementId: "" });
+  ok(r.status === 200, "清空 requirementId → 200", `status=${r.status}`);
+  ok(r.data.requirementId === undefined, "清空后回读为 undefined", String(r.data.requirementId));
+  // 复原，避免影响后续断言
+  await req("PUT", `/api/requirements/${reqStandalone}`, { requirementId: RID_A });
 }
 // 9b. 枚举兼容保险：需求侧 system 传未变更值仍可保存（回归）
 {
@@ -260,6 +276,14 @@ const RID_AUTO = `R-${YEAR}-AUTO${TAG}`;
   ok(auto.system === "ERP" && auto.currentNode === "方案中", "系统同步自工单 / 节点默认方案中");
   ok(auto.workOrderId === woC, "需求回指来源工单");
   ok(typeof auto.developmentDays === "number" && auto.developmentDays > 0, "自动生成需求的开发时长已算");
+}
+// 11b. 清空来源工单需求的编号 → 需求侧清空，工单侧编号保留
+{
+  await req("PUT", `/api/requirements/${reqAuto}`, { requirementId: "" });
+  const r = await req("GET", `/api/work-orders/${woC}`);
+  ok(r.data.requirementId === RID_AUTO, "清空需求编号后，来源工单上的编号保留", String(r.data.requirementId));
+  const back = await req("PUT", `/api/requirements/${reqAuto}`, { requirementId: RID_AUTO });
+  ok(back.status === 200, "复原需求编号 → 200", `status=${back.status}`);
 }
 // 12b. 建单即转需求但不填「需求内容」→ 需求内容为空（不回退成工单标题）
 {
@@ -524,6 +548,8 @@ console.log("== 删除与一致性 ==");
 {
   const r1 = await req("DELETE", `/api/requirements/${reqStandalone}`);
   ok(r1.status === 204, "清理独立需求 → 204（不留残留）", `status=${r1.status}`);
+  const r1c = await req("DELETE", `/api/requirements/${reqNoId}`);
+  ok(r1c.status === 204, "清理无编号需求 → 204（不留残留）", `status=${r1c.status}`);
   const r2 = await req("DELETE", `/api/requirements/${reqAuto}`);
   ok(r2.status === 204, "清理自动同步需求 → 204（不留残留）", `status=${r2.status}`);
   const r2b = await req("DELETE", `/api/requirements/${reqAutoF}`);
