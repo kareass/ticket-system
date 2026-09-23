@@ -573,5 +573,94 @@ console.log("== 删除与一致性 ==");
   ok(r9.status === 204, "清理工单G → 204", `status=${r9.status}`);
 }
 
+// ============================================================
+// 会议纪要 CRUD
+// ============================================================
+console.log("\n=== 会议纪要 CRUD ===");
+const MT_DATE = "2026-03-05";
+const createdMeetingIds = [];
+
+{
+  // —— 创建（回读逐项核对）——
+  const r = await req("POST", "/api/meetings", {
+    date: MT_DATE,
+    title: `冒烟会议-${TAG}`,
+    attendees: ["张三", "李四"],
+    recorder: "王五",
+    content: "本次例会讨论了排期。",
+  });
+  ok(r.status === 201, "创建会议纪要 → 201", `status=${r.status}`);
+  const m = r.data || {};
+  if (m.id) createdMeetingIds.push(m.id);
+
+  // 时区回归锁：日期必须原样回读，偏一天就是 new Date(str) 那个坑又回来了
+  ok(m.date === MT_DATE, "日期按日历日回读（不偏一天）", `期望 ${MT_DATE} 实际 ${m.date}`);
+  ok(
+    Array.isArray(m.attendees) &&
+      m.attendees.length === 2 &&
+      m.attendees[0] === "张三" &&
+      m.attendees[1] === "李四",
+    "参会人数组往返一致且保持顺序",
+    JSON.stringify(m.attendees),
+  );
+  ok(m.recorder === "王五", "记录人回读一致", `实际 ${m.recorder}`);
+  ok(m.content === "本次例会讨论了排期。", "会议内容回读一致");
+
+  // —— 校验 400 ——
+  const r2 = await req("POST", "/api/meetings", { date: MT_DATE });
+  ok(r2.status === 400, "缺主题 → 400", `status=${r2.status}`);
+
+  const r3 = await req("POST", "/api/meetings", { date: "2026-02-30", title: "x" });
+  ok(r3.status === 400, "非法日期 2026-02-30 → 400", `status=${r3.status}`);
+
+  const r3b = await req("POST", "/api/meetings", {
+    date: MT_DATE,
+    title: "x",
+    attendees: "张三",
+  });
+  ok(r3b.status === 400, "attendees 非数组 → 400", `status=${r3b.status}`);
+
+  // —— 单查 ——
+  const r4 = await req("GET", `/api/meetings/${m.id}`);
+  ok(r4.status === 200 && r4.data?.id === m.id, "单查会议纪要 → 200");
+
+  // —— 编辑：改主题 + 清空参会人 ——
+  const r5 = await req("PUT", `/api/meetings/${m.id}`, {
+    title: `冒烟会议改-${TAG}`,
+    attendees: [],
+  });
+  ok(r5.status === 200 && r5.data?.title === `冒烟会议改-${TAG}`, "编辑主题生效");
+  ok(
+    Array.isArray(r5.data?.attendees) && r5.data.attendees.length === 0,
+    "attendees 传 [] → 清空",
+    JSON.stringify(r5.data?.attendees),
+  );
+  // 三态之一：未传 = 不改
+  ok(r5.data?.recorder === "王五", "PUT 未传 recorder → 保持原值", `实际 ${r5.data?.recorder}`);
+
+  // —— 三态之二：传空串 = 清空 ——
+  const r6 = await req("PUT", `/api/meetings/${m.id}`, { recorder: "" });
+  ok(
+    r6.status === 200 && r6.data?.recorder === undefined,
+    "PUT 传 recorder:\"\" → 清空",
+    `实际 ${r6.data?.recorder}`,
+  );
+
+  // —— 删除 ——
+  const r7 = await req("DELETE", `/api/meetings/${m.id}`);
+  ok(r7.status === 204, "删除会议纪要 → 204", `status=${r7.status}`);
+  const r8 = await req("GET", `/api/meetings/${m.id}`);
+  ok(r8.status === 404, "删除后单查 → 404", `status=${r8.status}`);
+
+  // 已删，从兜底清理列表移除
+  const i = createdMeetingIds.indexOf(m.id);
+  if (i >= 0) createdMeetingIds.splice(i, 1);
+}
+
+// 兜底清理：中途任何断言失败都不能在库里留残留
+for (const id of createdMeetingIds) {
+  await req("DELETE", `/api/meetings/${id}`).catch(() => undefined);
+}
+
 console.log(failures === 0 ? "\n全部用例通过 ✅" : `\n${failures} 项失败 ❌`);
 process.exit(failures === 0 ? 0 : 1);
