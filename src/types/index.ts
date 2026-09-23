@@ -159,3 +159,32 @@ export function calcDevelopmentDays(
     Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)),
   );
 }
+
+// ---------- 会议纪要 ----------
+
+export interface MeetingAttachment {
+  id: string;
+  /** 原始文件名（展示与下载时用） */
+  fileName: string;
+  /** 字节数 */
+  size: number;
+  mimeType?: string;
+  createdAt: string;
+}
+
+export interface Meeting {
+  id: string;
+  /** 日期（日历日 YYYY-MM-DD） */
+  date: string;
+  /** 主题 */
+  title: string;
+  /** 参会人（库里存 JSON 数组文本，此处已解析） */
+  attendees: string[];
+  /** 记录人 */
+  recorder?: string;
+  /** 会议内容 */
+  content?: string;
+  attachments: MeetingAttachment[];
+  createdAt: string;
+  updatedAt: string;
+}

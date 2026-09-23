@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
-import type { Requirement as DbRequirement, WorkOrder as DbWorkOrder } from "@prisma/client";
+import type {
+  Meeting as DbMeeting,
+  MeetingAttachment as DbMeetingAttachment,
+  Requirement as DbRequirement,
+  WorkOrder as DbWorkOrder,
+} from "@prisma/client";
 import { NODE_OPTIONS, SYSTEM_OPTIONS, WORK_ORDER_STATUS_OPTIONS } from "@/types";
 import { diffDays } from "@/lib/utils";
 
@@ -190,5 +195,88 @@ export function toRequirementJson(r: DbRequirement): RequirementJson {
     workOrderId: clean(r.workOrderId),
     createdAt: r.createdAt.toISOString(),
     updatedAt: r.updatedAt.toISOString(),
+  };
+}
+
+/* ---------------- 会议纪要 ---------------- */
+
+export interface MeetingAttachmentJson {
+  id: string;
+  fileName: string;
+  size: number;
+  mimeType?: string;
+  createdAt: string;
+}
+
+export interface MeetingJson {
+  id: string;
+  date: string;
+  title: string;
+  attendees: string[];
+  recorder?: string;
+  content?: string;
+  attachments: MeetingAttachmentJson[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * 解析库里的 attendees（JSON 数组文本）。
+ * ⚠️ 脏数据（非法 JSON / 不是数组 / 元素不是字符串）一律回退成空数组，
+ * **绝不抛错** —— 一条坏数据不能让整个列表页 500。
+ */
+export function parseAttendees(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  try {
+    const v: unknown = JSON.parse(raw);
+    if (!Array.isArray(v)) return [];
+    return v
+      .filter((x): x is string => typeof x === "string")
+      .map((s) => s.trim())
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * 参会人数组 → 库里的 JSON 文本。
+ * undefined（未传）→ undefined（不改该字段）；[] 或全空白 → null（清空）。
+ */
+export function serializeAttendees(list: unknown): string | null | undefined {
+  if (list === undefined) return undefined;
+  if (!Array.isArray(list)) return null;
+  const arr = list
+    .filter((x): x is string => typeof x === "string")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return arr.length ? JSON.stringify(arr) : null;
+}
+
+export function toMeetingAttachmentJson(
+  a: DbMeetingAttachment,
+): MeetingAttachmentJson {
+  return {
+    id: a.id,
+    fileName: a.fileName,
+    size: a.size,
+    mimeType: clean(a.mimeType),
+    createdAt: a.createdAt.toISOString(),
+  };
+}
+
+export function toMeetingJson(
+  m: DbMeeting & { attachments?: DbMeetingAttachment[] },
+): MeetingJson {
+  return {
+    id: m.id,
+    date: dayOnly(m.date) as string,
+    title: m.title,
+    attendees: parseAttendees(m.attendees),
+    recorder: clean(m.recorder),
+    content: clean(m.content),
+    attachments: (m.attachments ?? []).map(toMeetingAttachmentJson),
+    createdAt: m.createdAt.toISOString(),
+    updatedAt: m.updatedAt.toISOString(),
   };
 }
