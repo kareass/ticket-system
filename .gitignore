@@ -22,6 +22,9 @@ prisma/*.db-journal
 # 数据库备份产物（npm run db:backup）
 /backups
 
+# 会议纪要附件（用户上传，不入库）
+/uploads
+
 # 日志与临时文件
 npm-debug.log*
 yarn-debug.log*

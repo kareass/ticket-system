@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { WorkOrder, Requirement } from "@/types";
+import type { Meeting, MeetingAttachment, WorkOrder, Requirement } from "@/types";
 
 /**
  * API 请求封装（环节5 起为真实数据源）
@@ -67,4 +67,31 @@ export const requirementApi = {
   remove: async (id: string): Promise<void> => {
     await http.delete(`/requirements/${id}`);
   },
+};
+
+// ---------- 会议纪要 ----------
+export const meetingApi = {
+  list: async (params?: { keyword?: string; attendee?: string }): Promise<Meeting[]> =>
+    (await http.get<Meeting[]>("/meetings", { params })).data,
+  get: async (id: string): Promise<Meeting> =>
+    (await http.get<Meeting>(`/meetings/${id}`)).data,
+  create: async (data: Partial<Meeting>): Promise<Meeting> =>
+    (await http.post<Meeting>("/meetings", data)).data,
+  update: async (id: string, data: Partial<Meeting>): Promise<Meeting> =>
+    (await http.put<Meeting>(`/meetings/${id}`, data)).data,
+  remove: async (id: string): Promise<void> => {
+    await http.delete(`/meetings/${id}`);
+  },
+  /** 上传单个附件（multipart）。不要手动设置 Content-Type，浏览器会自动带上 boundary */
+  uploadAttachment: async (meetingId: string, file: File): Promise<MeetingAttachment> => {
+    const form = new FormData();
+    form.append("file", file);
+    return (await http.post<MeetingAttachment>(`/meetings/${meetingId}/attachments`, form)).data;
+  },
+  removeAttachment: async (attachmentId: string): Promise<void> => {
+    await http.delete(`/attachments/${attachmentId}`);
+  },
+  /** 附件下载 / 预览地址（直接给 <img src> 或 <a href> 用） */
+  attachmentUrl: (attachmentId: string): string =>
+    `${process.env.NEXT_PUBLIC_API_BASE_URL || "/api"}/attachments/${attachmentId}`,
 };

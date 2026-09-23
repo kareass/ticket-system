@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import type { WorkOrder, Requirement } from "@/types";
-import { requirementApi, workOrderApi } from "@/lib/api";
+import type { WorkOrder, Requirement, Meeting, MeetingAttachment } from "@/types";
+import { meetingApi, requirementApi, workOrderApi } from "@/lib/api";
 
 /**
  * 全局状态（Zustand）—— 环节5 起接真实后端 API（Prisma/SQLite）。
@@ -43,6 +43,18 @@ interface AppState {
     patch: Partial<Requirement>,
   ) => Promise<Requirement>;
   deleteRequirement: (id: string) => Promise<void>;
+
+  // 会议纪要
+  meetings: Meeting[];
+  meetingsLoading: boolean;
+  meetingsLoaded: boolean;
+  loadMeetings: (force?: boolean) => Promise<Meeting[]>;
+  addMeeting: (m: Partial<Meeting>) => Promise<Meeting>;
+  updateMeeting: (id: string, patch: Partial<Meeting>) => Promise<Meeting>;
+  deleteMeeting: (id: string) => Promise<void>;
+  /** 上传附件后把返回的附件并入本地对应纪要 */
+  addMeetingAttachment: (meetingId: string, att: MeetingAttachment) => void;
+  removeMeetingAttachment: (meetingId: string, attId: string) => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -130,6 +142,52 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((s) => ({
       requirements: s.requirements.filter((r) => r.id !== id),
       // 后端在事务内已复位来源工单的转需求标记，这里同步刷新工单列表以保持一致
+    }));
+  },
+
+  // ---------- 会议纪要 ----------
+  meetings: [],
+  meetingsLoading: false,
+  meetingsLoaded: false,
+  loadMeetings: async (force = false) => {
+    if (get().meetingsLoaded && !force) return get().meetings;
+    set({ meetingsLoading: true });
+    try {
+      const list = await meetingApi.list();
+      set({ meetings: list, meetingsLoaded: true });
+      return list;
+    } finally {
+      set({ meetingsLoading: false });
+    }
+  },
+  addMeeting: async (m) => {
+    const created = await meetingApi.create(m);
+    set((s) => ({ meetings: [created, ...s.meetings] }));
+    return created;
+  },
+  updateMeeting: async (id, patch) => {
+    const updated = await meetingApi.update(id, patch);
+    set((s) => ({ meetings: s.meetings.map((m) => (m.id === id ? updated : m)) }));
+    return updated;
+  },
+  deleteMeeting: async (id) => {
+    await meetingApi.remove(id);
+    set((s) => ({ meetings: s.meetings.filter((m) => m.id !== id) }));
+  },
+  addMeetingAttachment: (meetingId, att) => {
+    set((s) => ({
+      meetings: s.meetings.map((m) =>
+        m.id === meetingId ? { ...m, attachments: [...m.attachments, att] } : m,
+      ),
+    }));
+  },
+  removeMeetingAttachment: (meetingId, attId) => {
+    set((s) => ({
+      meetings: s.meetings.map((m) =>
+        m.id === meetingId
+          ? { ...m, attachments: m.attachments.filter((a) => a.id !== attId) }
+          : m,
+      ),
     }));
   },
 }));
