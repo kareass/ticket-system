@@ -10,6 +10,7 @@ import {
   HomeOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
+  ScheduleOutlined,
 } from "@ant-design/icons";
 
 const { Sider, Content } = Layout;
@@ -29,6 +30,11 @@ const menuItems = [
     key: "/requirements",
     icon: <AppstoreOutlined />,
     label: <Link href="/requirements">需求管理</Link>,
+  },
+  {
+    key: "/meetings",
+    icon: <ScheduleOutlined />,
+    label: <Link href="/meetings">会议纪要</Link>,
   },
 ];
 

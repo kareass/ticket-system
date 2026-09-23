@@ -7,6 +7,7 @@ import {
   FileTextOutlined,
   AppstoreOutlined,
   CarryOutOutlined,
+  ScheduleOutlined,
 } from "@ant-design/icons";
 
 const { Title, Paragraph } = Typography;
@@ -23,6 +24,12 @@ const featureCards = [
     desc: "从工单转化的需求或手工登记的需求，跟进方案、开发、测试、发版全流程。",
     href: "/requirements",
     icon: <AppstoreOutlined style={{ fontSize: 40, color: "#52c41a" }} />,
+  },
+  {
+    title: "会议纪要",
+    desc: "记录部门会议的主题、参会人与讨论内容，支持上传附件。",
+    href: "/meetings",
+    icon: <ScheduleOutlined style={{ fontSize: 40, color: "#fa8c16" }} />,
   },
 ];
 
@@ -41,7 +48,7 @@ export default function HomePage() {
 
       <Row gutter={[24, 24]}>
         {featureCards.map((card) => (
-          <Col xs={24} md={12} key={card.href}>
+          <Col xs={24} md={8} key={card.href}>
             <Link href={card.href}>
               <Card hoverable style={{ height: "100%" }}>
                 <div style={{ marginBottom: 12 }}>{card.icon}</div>
