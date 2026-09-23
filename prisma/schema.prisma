@@ -66,3 +66,32 @@ model Requirement {
 
   @@map("Requirement")
 }
+
+// ---------- 会议纪要表 Meeting ----------
+model Meeting {
+  id          String   @id @default(cuid()) // 内部主键
+  date        DateTime // 日期（必填，日期选择器默认当天）
+  title       String   // 主题（必填）
+  attendees   String?  // 参会人（JSON 数组文本，如 ["张三","李四"]；出参解析为 string[]）
+  recorder    String?  // 记录人
+  content     String?  // 会议内容
+  attachments MeetingAttachment[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("Meeting")
+}
+
+// ---------- 会议附件表 MeetingAttachment ----------
+model MeetingAttachment {
+  id         String   @id @default(cuid())
+  meeting    Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  meetingId  String
+  fileName   String   // 原始文件名（仅用于展示与下载时的文件名，绝不用于拼磁盘路径）
+  storedName String   @unique // 磁盘上的文件名（服务端生成的 UUID + 白名单后缀）
+  size       Int      // 字节数
+  mimeType   String?  // 上传时的 content-type（仅作参考，不用于安全判断）
+  createdAt  DateTime @default(now())
+
+  @@map("MeetingAttachment")
+}
