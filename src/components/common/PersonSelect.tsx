@@ -2,6 +2,7 @@
 
 import React, { useMemo } from "react";
 import { Select } from "antd";
+import type { DefaultOptionType } from "antd/es/select";
 
 /**
  * 人名选择器：**可自由输入，也可从候选里点选**。
@@ -12,11 +13,22 @@ import { Select } from "antd";
  *
  * mode="multiple" 用于参会人，mode 不传（单选）用于记录人。
  */
+
+export interface PersonName {
+  name: string;
+  count?: number;
+}
+
+export interface PersonGroup {
+  label: string; // "常用" / "其他"
+  names: PersonName[];
+}
+
 interface PersonSelectProps {
   value?: string | string[];
   onChange?: (v: string | string[] | undefined) => void;
-  /** 候选人名 */
-  options: string[];
+  /** 候选人名（分组结构，由调用方控制排序与封顶） */
+  optionGroups: PersonGroup[];
   multiple?: boolean;
   placeholder?: string;
   style?: React.CSSProperties;
@@ -25,7 +37,7 @@ interface PersonSelectProps {
 export default function PersonSelect({
   value,
   onChange,
-  options,
+  optionGroups,
   multiple = false,
   placeholder,
   style,
@@ -49,9 +61,21 @@ export default function PersonSelect({
     else onChange(v && v.length ? v[v.length - 1] : undefined);
   };
 
-  const selectOptions = useMemo(
-    () => options.map((name) => ({ label: name, value: name })),
-    [options],
+  // 显式标注为 antd 的 DefaultOptionType[]：否则 TS 会把 options 的元素类型
+  // 推导成分组形状，导致下面 optionRender 里取 opt.data.count 报「属性不存在」。
+  const selectOptions: DefaultOptionType[] = useMemo(
+    () =>
+      optionGroups
+        .filter((g) => g.names.length > 0)
+        .map((g) => ({
+          label: g.label,
+          options: g.names.map((p) => ({
+            label: p.name,
+            value: p.name,
+            count: p.count,
+          })),
+        })),
+    [optionGroups],
   );
 
   return (
@@ -67,6 +91,18 @@ export default function PersonSelect({
       allowClear
       // 中文输入法组词时不要误触发分词
       tokenSeparators={[",", "、", "，"]}
+      optionRender={(opt) => (
+        // ⚠️ 次数只在下拉项里显示，**绝不能写进 option.label** ——
+        // antd 选中后的标签用的是 label，写进去标签会变成「张三 (12 次)」。
+        <span>
+          {opt.data.label}
+          {typeof opt.data.count === "number" ? (
+            <span style={{ color: "#999", marginLeft: 8, fontSize: 12 }}>
+              {opt.data.count} 次
+            </span>
+          ) : null}
+        </span>
+      )}
     />
   );
 }

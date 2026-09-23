@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo } from "react";
 import { Button, DatePicker, Form, Input, Space } from "antd";
 import dayjs from "dayjs";
-import PersonSelect from "@/components/common/PersonSelect";
+import PersonSelect, { PersonGroup, PersonName } from "@/components/common/PersonSelect";
 import { useAppStore } from "@/store/store";
 import type { Meeting } from "@/types";
 
@@ -57,14 +57,52 @@ export default function MeetingForm({
     form.setFieldsValue(formInitialValues as MeetingFormValues);
   }, [form, formInitialValues]);
 
-  // 候选人名：已加载的全部纪要里出现过的参会人与记录人，去重排序
-  const personOptions = useMemo(() => {
-    const set = new Set<string>();
-    for (const m of meetings) {
-      m.attendees.forEach((n) => set.add(n));
-      if (m.recorder) set.add(m.recorder);
+  /** 候选上限：超过就只保留最常用的 30 个，冷门的靠用户直接打字 */
+  const MAX_CANDIDATES = 30;
+  /** 只统计最近这么多条纪要 —— 避免多年前的一次性人名长期占位 */
+  const RECENT_WINDOW = 200;
+
+  // 候选人名：按出现次数分组 + 封顶 30
+  const personOptionGroups = useMemo<PersonGroup[]>(() => {
+    const recent = meetings.slice(0, RECENT_WINDOW);
+    const stat = new Map<
+      string,
+      { count: number; lastSeen: number }
+    >();
+    recent.forEach((m, idx) => {
+      const names = [...m.attendees, ...(m.recorder ? [m.recorder] : [])];
+      for (const raw of names) {
+        const name = raw.trim();
+        if (!name) continue;
+        const cur = stat.get(name);
+        if (cur) {
+          cur.count += 1;
+          cur.lastSeen = Math.min(cur.lastSeen, idx);
+        } else {
+          stat.set(name, { count: 1, lastSeen: idx });
+        }
+      }
+    });
+
+    const sorted: [string, { count: number; lastSeen: number }][] = [...stat.entries()].sort(
+      ([na, a], [nb, b]) =>
+        b.count - a.count ||
+        a.lastSeen - b.lastSeen ||
+        na.localeCompare(nb, "zh-CN"),
+    );
+
+    const frequent: PersonName[] = [];
+    const others: PersonName[] = [];
+    for (const [name, s] of sorted) {
+      if (frequent.length + others.length >= MAX_CANDIDATES) break;
+      if (s.count >= 2 && frequent.length < MAX_CANDIDATES) frequent.push({ name, count: s.count });
+      else others.push({ name, count: s.count });
     }
-    return Array.from(set).sort((a, b) => a.localeCompare(b, "zh-CN"));
+
+    return [
+      { label: "常用", names: frequent },
+      { label: "其他", names: others },
+    ];
   }, [meetings]);
 
   return (
@@ -93,7 +131,7 @@ export default function MeetingForm({
       <Form.Item name="attendees" label="参会人">
         <PersonSelect
           multiple
-          options={personOptions}
+          optionGroups={personOptionGroups}
           placeholder="输入人名后回车，或从下拉中选择"
           style={{ width: WIDTH.person }}
         />
@@ -101,7 +139,7 @@ export default function MeetingForm({
 
       <Form.Item name="recorder" label="记录人">
         <PersonSelect
-          options={personOptions}
+          optionGroups={personOptionGroups}
           placeholder="输入或选择记录人"
           style={{ width: WIDTH.person }}
         />

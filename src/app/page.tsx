@@ -47,8 +47,9 @@ export default function HomePage() {
       </Card>
 
       <Row gutter={[24, 24]}>
+        {/* 一行两个：工单/需求在第一行，后续新增功能自动落到第二行 */}
         {featureCards.map((card) => (
-          <Col xs={24} md={8} key={card.href}>
+          <Col xs={24} md={12} key={card.href}>
             <Link href={card.href}>
               <Card hoverable style={{ height: "100%" }}>
                 <div style={{ marginBottom: 12 }}>{card.icon}</div>
