@@ -55,6 +55,9 @@ interface AppState {
   /** 上传附件后把返回的附件并入本地对应纪要 */
   addMeetingAttachment: (meetingId: string, att: MeetingAttachment) => void;
   removeMeetingAttachment: (meetingId: string, attId: string) => void;
+  /** 把单查得到的纪要并入列表缓存（编辑页回源后调用）。
+   *  附件增删只 patch 缓存，纪要不在缓存里就会静默丢掉更新。 */
+  upsertMeeting: (m: Meeting) => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -188,6 +191,13 @@ export const useAppStore = create<AppState>((set, get) => ({
           ? { ...m, attachments: m.attachments.filter((a) => a.id !== attId) }
           : m,
       ),
+    }));
+  },
+  upsertMeeting: (m) => {
+    set((s) => ({
+      meetings: s.meetings.some((x) => x.id === m.id)
+        ? s.meetings.map((x) => (x.id === m.id ? m : x))
+        : [m, ...s.meetings],
     }));
   },
 }));
