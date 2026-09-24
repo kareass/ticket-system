@@ -14,7 +14,7 @@ npm run dev            # 开发模式（首次进入每个路由现场编译，1
 npm run build          # 生产构建
 npm run start          # 生产启动（日常使用请用生产模式，页面 6~300ms）
 npm run typecheck      # tsc --noEmit（提交前必跑）
-npm run api:smoke      # 后端接口冒烟，107 项断言（需服务已在 :3000 运行）
+npm run api:smoke      # 后端接口冒烟，148 项断言（需服务已在 :3000 运行）
 npm run check:env      # 环境检查清单（纯本地，不联网）
 npm run db:migrate     # prisma migrate deploy（建表）
 npm run db:seed        # 写入演示数据（会先清空现有数据）
@@ -22,12 +22,15 @@ npm run verify         # typecheck + build
 ```
 
 **没有单元测试框架**（无 jest/vitest），也没有「只跑某个用例」的开关 —— `api:smoke` 是唯一的自动化测试，
-每次全量跑 107 项。要加断言就直接往 `scripts/api-smoke.mjs` 里加，它自清理、可重复运行。
+每次全量跑 148 项。要加断言就直接往 `scripts/api-smoke.mjs` 里加，它自清理、可重复运行。
 
 ## 架构
 
 单个 Node.js 进程承载前后端：Next.js 14 App Router（`src/app`）+ Route Handlers（`src/app/api/**`）+ React 18 + antd 5 + Zustand，
 数据层 Prisma + SQLite。**无账号/权限体系**，所有日期字段默认今天。
+
+会议纪要模块（`Meeting` / `MeetingAttachment`）的附件存储在磁盘 `uploads/` 目录，**不在数据库里**；
+备份脚本 `scripts/backup-db.mjs` 会将 `dev.db` 与 `uploads/` 一起打包为 `.tar.gz`，恢复时须两者同时还原。
 
 ### 数据层（Prisma / SQLite）
 
@@ -97,6 +100,9 @@ npm run verify         # typecheck + build
 - dev 的编译队列是串行的：一次编译被中断（请求超时断开、编辑器连续保存）会让**后续所有请求一起卡住** ——
   表现为端口还在 LISTENING 但任何页面都不返回。处理：`netstat -ano | findstr :3000` 拿 PID → `taskkill /F /PID <PID>`。
 - 用户日常使用请跑**生产模式**；dev 首次进入每个路由要现场编译 3000+ 模块，体感明显发卡。
+- **Node 里调 `tar` 必须用「相对档名 + `cwd`」**：Node 优先解析到 Git 自带的 GNU tar，
+  它把 `-f E:\...` 里的 `E:` 当成**远程主机**解析，绝对路径当档名会直接失败。
+  `-C` 用绝对路径没问题。本项目在 E 盘，所以这是必踩项。
 - **命令行里的中文会被控制台按 GBK 处理，到达 curl / sqlite3 时已经损坏** —— 用它做含中文的接口
   验证会得到**假故障**。实测：`curl -d '{"status":"已废弃"}'` 发出去的其实是乱码（入库字节里出现
   `EFBFBD`，即 U+FFFD 替换字符），服务端因此判定「值不合法」。可靠做法：① 能用 ASCII 就用 ASCII
@@ -125,6 +131,6 @@ npm run verify         # typecheck + build
 | `docs/部署指南.md` / `docs/内网部署方案.md` | 部署 |
 | `docs/测试报告-环节6.md` | 测试记录、性能数据、各轮验收反馈（F1–F7）与 Bug 记录 |
 
-改了接口/枚举/字段口径时，同步更新上面对应的文档 —— 各文档里都写明了断言数（119）等具体数字，容易漏。
+改了接口/枚举/字段口径时，同步更新上面对应的文档 —— 各文档里都写明了断言数（148）等具体数字，容易漏。
 
 `agents/*.md` 是构建期的角色定义（子会话提示词），不是本仓库的开发规范。

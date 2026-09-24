@@ -33,7 +33,7 @@ npm run dev                   # 启动，访问 http://localhost:3000
 | `npm run db:init` | 数据库初始化（建表；`--with-seed` 加演示数据，`--drop` 重置） |
 | `npm run db:migrate` | 应用迁移（`prisma migrate deploy`） |
 | `npm run db:seed` | 写入演示数据（**会先清空现有数据**） |
-| `npm run api:smoke` | 后端接口冒烟（107 项断言，需服务已在 3000 运行；运行后自动清理测试数据） |
+| `npm run api:smoke` | 后端接口冒烟（148 项断言，需服务已在 3000 运行；运行后自动清理测试数据） |
 | `npm run typecheck` | TypeScript 类型检查 |
 | `npm run verify` | 类型检查 + 生产构建 |
 
@@ -72,7 +72,9 @@ bash deploy.sh
 │   ├── schema.prisma         # 数据模型（WorkOrder / Requirement）
 │   ├── migrations/           # 迁移记录
 │   └── seed.ts               # 演示数据
+├── uploads/                  # 会议纪要附件（不在数据库里，备份时与 dev.db 一起打包）
 ├── scripts/
+│   ├── backup-db.mjs         # 数据库+附件快照备份
 │   ├── check-env.mjs         # 环境检查
 │   ├── db-init.sh            # 数据库初始化
 │   └── api-smoke.mjs         # 接口冒烟
