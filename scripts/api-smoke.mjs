@@ -662,5 +662,143 @@ for (const id of createdMeetingIds) {
   await req("DELETE", `/api/meetings/${id}`).catch(() => undefined);
 }
 
+// ============================================================
+// 会议纪要附件
+// ============================================================
+console.log("\n=== 会议纪要附件 ===");
+
+// 附件走 multipart 上传 + 原始字节下载，与既有 req()（JSON 封装）不同，故单独封装。
+// 文件 IO 只在「连带删文件」断言与自清理里用，动态 import 避免动文件头。
+const fs = await import("node:fs");
+const path = await import("node:path");
+
+const UPLOADS_DIR = path.join(process.cwd(), "uploads");
+// 容忍 uploads/ 不存在（尚无任何附件时它不存在）
+const countUploads = () =>
+  fs.existsSync(UPLOADS_DIR) ? fs.readdirSync(UPLOADS_DIR).length : 0;
+
+async function uploadAttachment(meetingId, fileName, content, type) {
+  const form = new FormData();
+  // Blob + 第三个参数 filename：undici 会把它写进 multipart 的 filename 字段，
+  // 服务端 form.get("file") 还原出的 File.name 即为此名。
+  form.append("file", new Blob([content], { type: type || "text/plain" }), fileName);
+  const res = await fetch(`${BASE}/api/meetings/${meetingId}/attachments`, {
+    method: "POST",
+    body: form,
+  });
+  const text = await res.text();
+  let data = null;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = text;
+  }
+  return { status: res.status, data };
+}
+
+// 下载读回原始字节（不能走 req()：它按文本 JSON.parse，二进制会失真）
+async function downloadAttachment(attachmentId) {
+  const res = await fetch(`${BASE}/api/attachments/${attachmentId}`);
+  const buf = Buffer.from(await res.arrayBuffer());
+  return { status: res.status, buf };
+}
+
+// 断言主体一律用 ASCII 文件名：中文经 Windows 控制台到 curl 会被 GBK 破坏，
+// Node 的 fetch+FormData 虽不受影响，但断言文案本身的编码风险不值得冒。
+const ATT_DATE = "2026-03-06";
+const ATT_CONTENT = `smoke-attachment-${TAG}\nsecond line`;
+const ATT_NAME = "smoke-attach.txt";
+const ATT2_NAME = "smoke-attach2.txt";
+
+let attMeetingId = null;
+const createdAttIds = [];
+
+try {
+  const baseline = countUploads();
+
+  // —— 建一张用于挂附件的纪要 ——
+  const c = await req("POST", "/api/meetings", {
+    date: ATT_DATE,
+    title: `附件冒烟会议-${TAG}`,
+  });
+  ok(c.status === 201, "建附件测试纪要 → 201", `status=${c.status}`);
+  attMeetingId = c.data && c.data.id;
+
+  // 1. 上传 .txt → 201，fileName 与原始名逐字一致
+  const up1 = await uploadAttachment(attMeetingId, ATT_NAME, ATT_CONTENT);
+  ok(up1.status === 201, "上传 .txt 附件 → 201", `status=${up1.status}`);
+  ok(up1.data?.fileName === ATT_NAME, "fileName 与上传原始名逐字一致", `fileName=${up1.data?.fileName}`);
+  ok(
+    up1.data?.size === Buffer.byteLength(ATT_CONTENT, "utf8"),
+    "附件 size 与上传字节数一致",
+    `size=${up1.data?.size}`,
+  );
+  if (up1.data?.id) createdAttIds.push(up1.data.id);
+  const attId1 = up1.data?.id;
+
+  // 2. 单查纪要 → 附件出现在 attachments 数组（长度与 id 都对）
+  const m = await req("GET", `/api/meetings/${attMeetingId}`);
+  ok(m.status === 200 && Array.isArray(m.data?.attachments), "单查纪要含 attachments 数组");
+  ok(
+    m.data?.attachments?.length === 1 && m.data.attachments[0].id === attId1,
+    "附件出现在 attachments 数组（长度与 id 都对）",
+    JSON.stringify(m.data?.attachments?.map((a) => a.id)),
+  );
+
+  // 3. 下载内容与上传字节完全一致
+  const dl = await downloadAttachment(attId1);
+  ok(dl.status === 200, "下载附件 → 200", `status=${dl.status}`);
+  ok(
+    dl.buf.toString("utf8") === ATT_CONTENT &&
+      dl.buf.length === Buffer.byteLength(ATT_CONTENT, "utf8"),
+    "下载内容与上传字节完全一致",
+    `len=${dl.buf.length}`,
+  );
+
+  // 4. 上传不在白名单的后缀 → 400
+  // 注：20MB 上限（413 预检 / 400 兜底）已由总调度在 Task 11 Step 5 独立实测确认；
+  // 这里不造 21MB body —— 那会让每次全量冒烟多传 21MB。本分区只锁「白名单外后缀被拒」这一侧。
+  const up2 = await uploadAttachment(attMeetingId, "smoke-attach.exe", "MZ...");
+  ok(up2.status === 400, "上传 .exe（白名单外后缀）→ 400", `status=${up2.status}`);
+
+  // 5. 删除单个附件 → 204；再单查纪要 → 该附件已不在数组
+  const del = await req("DELETE", `/api/attachments/${attId1}`);
+  ok(del.status === 204, "删除单个附件 → 204", `status=${del.status}`);
+  const m2 = await req("GET", `/api/meetings/${attMeetingId}`);
+  ok(
+    Array.isArray(m2.data?.attachments) &&
+      !m2.data.attachments.some((a) => a.id === attId1),
+    "删除后再单查纪要 → 该附件已不在数组",
+    JSON.stringify(m2.data?.attachments?.map((a) => a.id)),
+  );
+  // 该附件已删，移出兜底清理列表
+  const i1 = createdAttIds.indexOf(attId1);
+  if (i1 >= 0) createdAttIds.splice(i1, 1);
+
+  // 6. 上传第二个附件后删除纪要 → 204；纪要的附件磁盘文件也被连带删除
+  const up3 = await uploadAttachment(attMeetingId, ATT2_NAME, "to be cascaded");
+  ok(up3.status === 201, "上传第二个附件（供级联删除验证）→ 201", `status=${up3.status}`);
+  if (up3.data?.id) createdAttIds.push(up3.data.id);
+
+  const delMeeting = await req("DELETE", `/api/meetings/${attMeetingId}`);
+  ok(delMeeting.status === 204, "删除纪要 → 204", `status=${delMeeting.status}`);
+  // 接口出参不暴露 storedName，用文件系统侧面验证：删除纪要后 uploads/ 文件数回到本轮前
+  const afterCount = countUploads();
+  ok(
+    afterCount === baseline,
+    "删除纪要后 uploads/ 文件数回到本轮前（连带删文件，无孤儿）",
+    `基线 ${baseline} 实际 ${afterCount}`,
+  );
+  attMeetingId = null; // 纪要已删，不再进兜底
+} finally {
+  // 自清理：任何断言失败都不得在库里/盘上留残留
+  if (attMeetingId) {
+    await req("DELETE", `/api/meetings/${attMeetingId}`).catch(() => undefined);
+  }
+  for (const id of createdAttIds) {
+    await req("DELETE", `/api/attachments/${id}`).catch(() => undefined);
+  }
+}
+
 console.log(failures === 0 ? "\n全部用例通过 ✅" : `\n${failures} 项失败 ❌`);
 process.exit(failures === 0 ? 0 : 1);
