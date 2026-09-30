@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/server/db";
 import {
   NODES,
+  SUBMITTERS,
   SYSTEMS,
   apiError,
   asBool,
@@ -19,7 +20,7 @@ export const runtime = "nodejs";
 
 /**
  * GET /api/requirements
- * 需求列表。可选过滤：?system=WMS&currentNode=测试中&keyword=xxx
+ * 需求列表。可选过滤：?system=WMS&currentNode=测试中&keyword=xxx&submittedBy=黄傲
  * （keyword 匹配 需求ID 或 需求标题，忽略大小写）。按创建时间倒序。
  */
 export async function GET(req: Request) {
@@ -27,10 +28,13 @@ export async function GET(req: Request) {
   const system = url.searchParams.get("system");
   const currentNode = url.searchParams.get("currentNode");
   const keyword = url.searchParams.get("keyword")?.trim();
+  const submittedBy = url.searchParams.get("submittedBy")?.trim();
 
   const where: Prisma.RequirementWhereInput = {
     ...(system && SYSTEMS.includes(system) ? { system } : {}),
     ...(currentNode && NODES.includes(currentNode) ? { currentNode } : {}),
+    // 提交人：仅在枚举内的值才参与过滤；非法/空值视为不过滤
+    ...(submittedBy && SUBMITTERS.includes(submittedBy) ? { submittedBy } : {}),
     ...(keyword
       ? { OR: [{ requirementId: { contains: keyword } }, { title: { contains: keyword } }] }
       : {}),
@@ -105,6 +109,14 @@ export async function POST(req: Request) {
   const remark = asTrimmed(body.remark);
   const workOrderId = asTrimmed(body.workOrderId);
 
+  // 提交人：新记录必填（黄傲 / 陈婷婷），历史数据可空
+  const submittedBy = asTrimmed(body.submittedBy);
+  if (!submittedBy) {
+    errors.push("submittedBy 必填（黄傲 / 陈婷婷）。");
+  } else if (!SUBMITTERS.includes(submittedBy)) {
+    errors.push(`submittedBy 须为以下之一：${SUBMITTERS.join(" / ")}。`);
+  }
+
   // 带 workOrderId 的请求本质是「转需求」，必须带编号 ——
   // 与 work-order-sync.ts 的规则保持一致（那里也是 400）。
   if (workOrderId && !requirementId) {
@@ -147,6 +159,7 @@ export async function POST(req: Request) {
     developmentDays,
     ...(remark ? { remark } : {}),
     ...(workOrderId ? { workOrderId } : {}),
+    submittedBy: submittedBy as string,
   };
 
   try {

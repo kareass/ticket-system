@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/server/db";
 import {
   ApiFailure,
+  SUBMITTERS,
   apiError,
   asTrimmed,
   readJson,
@@ -25,10 +26,13 @@ interface Ctx {
  *     "requirementId": "R-2026-006",     // 本次转出的需求ID（列表「转需求」弹框即走此入参）；
  *                                        // 不传时退回工单上已登记的需求ID（兼容先登记编号再转的用法）
  *     "requirementContent": "……"         // 本次转出的需求内容；不传时退回工单上已存的需求内容
+ *     "submittedBy": "陈婷婷"            // 需求提交人；不传时默认用工单上的提交人，
+ *                                        // 工单无提交人则 400（要求弹框必填）
  *   }
  *   注意 requirementContent 区分「不传」与「传空串」：传空串即显式清空，需求内容落空（null）。
  * - 工单不存在 → 404；已转需求（isConvertToRequirement 或已存在关联需求）→ 409；
  * - 最终需求ID 为空 → 400（需求ID 必填，不填不能完成转需求）；
+ * - 需求提交人为空且工单上未登记 → 400；
  * - 需求ID 已被其它需求占用 → 409。
  * - 事务内：入参的 requirementId / requirementContent 先落回工单（保持两侧一致），
  *   再据此创建需求（日期取工单日期、标题取工单标题、内容取工单「需求内容」**为空即空**、
@@ -42,6 +46,8 @@ export async function POST(req: Request, { params }: Ctx) {
   const bodyId = asTrimmed(body.requirementId);
   // undefined = 未传（退回工单已存值）；"" = 显式清空
   const bodyContent = asTrimmed(body.requirementContent);
+  // submittedBy：未传 → 退回工单上登记值（可能为空）；传非空 → 校验；空串视为「未提供」
+  const bodySubmitter = asTrimmed(body.submittedBy);
 
   const wo = await prisma.workOrder.findUnique({
     where: { id: params.id },
@@ -62,6 +68,18 @@ export async function POST(req: Request, { params }: Ctx) {
     return apiError(400, "请填写「需求ID」后再转需求（需求ID 必填）。");
   }
 
+  // 提交人：显式传入则校验枚举；未传则用回退值（工单已存值或 null）
+  let submittedByPatch: string | null | undefined = undefined;
+  if (bodySubmitter !== undefined) {
+    if (!bodySubmitter) {
+      submittedByPatch = null; // 显式清空（与 requirementContent 同款）
+    } else if (!SUBMITTERS.includes(bodySubmitter)) {
+      return apiError(400, `submittedBy 须为以下之一：${SUBMITTERS.join(" / ")}。`);
+    } else {
+      submittedByPatch = bodySubmitter;
+    }
+  }
+
   // 需求内容：空串统一落 null，避免库中出现空字符串
   const contentPatch =
     bodyContent === undefined ? undefined : bodyContent === "" ? null : bodyContent;
@@ -71,6 +89,9 @@ export async function POST(req: Request, { params }: Ctx) {
   if (bodyId && bodyId !== wo.requirementId) patch.requirementId = bodyId;
   if (contentPatch !== undefined && contentPatch !== wo.requirementContent) {
     patch.requirementContent = contentPatch;
+  }
+  if (submittedByPatch !== undefined && submittedByPatch !== wo.submittedBy) {
+    patch.submittedBy = submittedByPatch;
   }
 
   try {
@@ -84,6 +105,7 @@ export async function POST(req: Request, { params }: Ctx) {
           ...wo,
           requirementId: targetId,
           ...(contentPatch !== undefined ? { requirementContent: contentPatch } : {}),
+          submittedBy: (patch.submittedBy ?? wo.submittedBy) as string,
         },
         tx,
       );

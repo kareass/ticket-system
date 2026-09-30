@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/server/db";
 import {
   NODES,
+  SUBMITTERS,
   SYSTEMS,
   apiError,
   asBool,
@@ -143,6 +144,17 @@ export async function PUT(req: Request, { params }: Ctx) {
   }
   if (body.workOrderId !== undefined && asTrimmed(body.workOrderId) !== existing.workOrderId) {
     return apiError(400, "workOrderId 不可经更新接口修改来源工单（请通过转需求专用接口）。");
+  }
+  // 提交人三态：未传不改 / 传空串清空 / 传非空改名
+  if (body.submittedBy !== undefined) {
+    const submittedBy = asTrimmed(body.submittedBy);
+    if (!submittedBy) {
+      data.submittedBy = null;
+    } else if (submittedBy !== existing.submittedBy && !SUBMITTERS.includes(submittedBy)) {
+      errors.push(`submittedBy 须为以下之一：${SUBMITTERS.join(" / ")}。`);
+    } else if (submittedBy !== existing.submittedBy) {
+      data.submittedBy = submittedBy;
+    }
   }
 
   if (errors.length) return apiError(400, "参数校验失败。", errors);
