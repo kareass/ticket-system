@@ -21,7 +21,7 @@ import EditableChip from "@/components/common/EditableChip";
 import SortableHeader from "@/components/common/SortableHeader";
 import { useRowDrafts } from "@/lib/useRowDrafts";
 import { createComparator, type SortState } from "@/lib/sortRows";
-import { SYSTEM_OPTIONS, SYSTEM_COLORS, WORK_ORDER_STATUS_COLORS, WORK_ORDER_STATUS_OPTIONS, asSelectOptions } from "@/types";
+import { SYSTEM_OPTIONS, SUBMITTER_OPTIONS, SYSTEM_COLORS, WORK_ORDER_STATUS_COLORS, WORK_ORDER_STATUS_OPTIONS, asSelectOptions } from "@/types";
 import type { WorkOrder, WorkOrderStatus } from "@/types";
 import { useAppStore } from "@/store/store";
 import { formatDate, workOrderNo } from "@/lib/utils";
@@ -52,16 +52,18 @@ export default function WorkOrderListPage() {
   // 草稿状态：内联修改暂存草稿，显式提交才落库
   const drafts = useRowDrafts<WorkOrder>();
 
-  // 标题搜索关键字 / 系统筛选值（受控，allowClear 清空后为 undefined 表示不过滤）
+  // 标题搜索关键字 / 系统筛选值 / 提交人筛选值（受控，allowClear 清空后为 undefined 表示不过滤）
   const [keyword, setKeyword] = useState("");
   const [system, setSystem] = useState<string | undefined>(undefined);
+  const [submitter, setSubmitter] = useState<string | undefined>(undefined);
   // 排序状态：null = 未排序，保持后端返回的 createdAt 倒序
   const [sort, setSort] = useState<SortState<WorkOrder> | null>(null);
 
-  // 转需求弹框：目标工单 + 待填需求ID / 需求内容 + 提交中
+  // 转需求弹框：目标工单 + 待填需求ID / 需求内容 + 需求提交人 + 提交中
   const [convertTarget, setConvertTarget] = useState<WorkOrder | null>(null);
   const [convertId, setConvertId] = useState("");
   const [convertContent, setConvertContent] = useState("");
+  const [convertSubmitter, setConvertSubmitter] = useState<string | undefined>(undefined);
   const [converting, setConverting] = useState(false);
 
   // 初次挂载拉取数据（需求列表用于反查「关联需求」）
@@ -70,15 +72,17 @@ export default function WorkOrderListPage() {
     void loadRequirements().catch((e) => message.error(toErrorMessage(e)));
   }, [loadWorkOrders, loadRequirements]);
 
-  // 前端过滤：标题包含 + 系统相等（无关键字 / 未选系统时不参与过滤）
+  // 前端过滤：标题包含 + 系统相等 + 提交人相等（无关键字 / 未选筛选时不参与过滤）
   const filteredWorkOrders = useMemo(() => {
     const kw = keyword.trim().toLowerCase();
     return workOrders.filter((wo) => {
       const hitTitle = !kw || wo.title.toLowerCase().includes(kw);
       const hitSystem = !system || wo.system === system;
-      return hitTitle && hitSystem;
+      // 提交人筛选：历史数据 submittedBy 为空时永远不命中（与 DB 一致）
+      const hitSubmitter = !submitter || wo.submittedBy === submitter;
+      return hitTitle && hitSystem && hitSubmitter;
     });
-  }, [workOrders, keyword, system]);
+  }, [workOrders, keyword, system, submitter]);
 
   // 双击列头：升序 → 降序 → 取消（回到默认的创建时间倒序）
   const handleSortToggle = (field: keyof WorkOrder) => {
@@ -111,6 +115,8 @@ export default function WorkOrderListPage() {
   const systemFilterOptions = asSelectOptions(SYSTEM_OPTIONS);
   // 状态选项：唯一来源 src/types，与表单页共用
   const statusOptions = asSelectOptions(WORK_ORDER_STATUS_OPTIONS);
+  // 提交人选项：唯一来源 src/types，与表单页共用
+  const submitterOptions = asSelectOptions(SUBMITTER_OPTIONS);
 
   // 提交：先确认，再把全部草稿逐个写入后端（全成功才清空草稿）
   const handleCommit = () => {
@@ -137,6 +143,8 @@ export default function WorkOrderListPage() {
     setConvertTarget(record);
     setConvertId(record.requirementId ?? "");
     setConvertContent(record.requirementContent ?? "");
+    // 需求提交人默认预填工单的提交人；历史工单无提交人时让用户在弹框里手动选
+    setConvertSubmitter(record.submittedBy);
   };
 
   const handleConvertOk = async () => {
@@ -146,12 +154,17 @@ export default function WorkOrderListPage() {
       message.warning("请填写「需求ID」后再转需求。");
       return;
     }
+    if (!convertSubmitter) {
+      message.warning("请选择「需求提交人」后再转需求。");
+      return;
+    }
     setConverting(true);
     try {
       // 需求内容按填写值原样提交：留空即转出「内容为空」的需求（后端不再回退成工单标题）
       const req = await convertWorkOrder(convertTarget.id, {
         requirementId: rid,
         requirementContent: convertContent.trim(),
+        submittedBy: convertSubmitter,
       });
       message.success(`已转为需求 ${req.requirementId}`);
       setConvertTarget(null);
@@ -200,6 +213,22 @@ export default function WorkOrderListPage() {
           colorOf={(s) => (SYSTEM_COLORS as Record<string, string | undefined>)[s]}
           dirty={drafts.isFieldDirty(record.id, "system")}
           onChange={(v) => drafts.stage(record.id, { system: v } as Partial<WorkOrder>)}
+        />
+      ),
+    },
+    {
+      // 提交人：黄傲 / 陈婷婷；历史数据为空时显示 -（可空字段）。三态语义走 PUT：未传不动 / 空串清空 / 非空改名
+      title: sortableTitle("提交人", "submittedBy"),
+      dataIndex: "submittedBy",
+      width: 110,
+      render: (submittedBy: string | undefined, record) => (
+        <EditableChip
+          value={submittedBy ?? ""}
+          options={submitterOptions}
+          dirty={drafts.isFieldDirty(record.id, "submittedBy")}
+          onChange={(v) =>
+            drafts.stage(record.id, { submittedBy: v } as Partial<WorkOrder>)
+          }
         />
       ),
     },
@@ -365,6 +394,14 @@ export default function WorkOrderListPage() {
             value={system}
             onChange={(value) => setSystem(value)}
           />
+          <Select<string>
+            allowClear
+            placeholder="按提交人筛选"
+            style={{ width: 140 }}
+            options={submitterOptions}
+            value={submitter}
+            onChange={(value) => setSubmitter(value)}
+          />
         </Space>
       </div>
 
@@ -387,7 +424,7 @@ export default function WorkOrderListPage() {
         okText="转为需求"
         cancelText="取消"
         confirmLoading={converting}
-        okButtonProps={{ disabled: !convertId.trim() }}
+        okButtonProps={{ disabled: !convertId.trim() || !convertSubmitter }}
         onOk={handleConvertOk}
         onCancel={() => setConvertTarget(null)}
         destroyOnClose
@@ -414,6 +451,22 @@ export default function WorkOrderListPage() {
             />
             <div style={{ marginTop: 6, marginBottom: 12, color: "#8c8c8c", fontSize: 12 }}>
               业务编号，需全局唯一；编号已被占用会提示更换。
+            </div>
+
+            <div style={{ marginBottom: 6 }}>
+              <span style={{ color: "#ff4d4f", marginRight: 4 }}>*</span>
+              需求提交人
+            </div>
+            <Select
+              style={{ width: 160 }}
+              placeholder="请选择需求提交人"
+              options={submitterOptions}
+              value={convertSubmitter}
+              onChange={setConvertSubmitter}
+              allowClear
+            />
+            <div style={{ marginTop: 6, marginBottom: 12, color: "#8c8c8c", fontSize: 12 }}>
+              默认与工单提交人相同，可在此修改。
             </div>
 
             <div style={{ marginBottom: 6 }}>需求内容</div>

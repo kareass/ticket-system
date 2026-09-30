@@ -30,6 +30,8 @@ export default function CreateWorkOrderPage() {
         requirementId: values.requirementId,
         requirementContent: values.requirementContent,
         remark: values.remark,
+        // 提交人：表单必填校验把关，未填会被拦在前端
+        submittedBy: values.submittedBy,
       });
       message.success("工单已创建");
       router.push("/work-orders");

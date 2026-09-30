@@ -6,7 +6,7 @@ import dayjs from "dayjs";
 import type { Dayjs } from "dayjs";
 import { Button, Card, DatePicker, Form, Input, Select, Switch } from "antd";
 import type { Requirement, RequirementNode } from "@/types";
-import { NODE_OPTIONS, YES_NO_OPTIONS, asSelectOptions } from "@/types";
+import { NODE_OPTIONS, SUBMITTER_OPTIONS, YES_NO_OPTIONS, asSelectOptions } from "@/types";
 import { diffDays, today } from "@/lib/utils";
 import SystemSelect from "@/components/common/SystemSelect";
 
@@ -39,6 +39,8 @@ export interface RequirementFormValues {
   remark?: string;
   /** 开发时长（天，自动计算，未发版 date→今天；已发版 date→发版时间） */
   developmentDays: number;
+  /** 提交人（必填：黄傲 / 陈婷婷） */
+  submittedBy: string;
 }
 
 interface RequirementFormProps {
@@ -70,6 +72,7 @@ interface RequirementFormFields {
   isReleased?: boolean;
   releaseDate?: Dayjs;
   remark?: string;
+  submittedBy?: string;
 }
 
 /** 当前节点下拉选项：唯一来源 src/types */
@@ -77,6 +80,9 @@ const nodeOptions = asSelectOptions(NODE_OPTIONS);
 
 /** 是否加急下拉选项：是/否（唯一来源 src/types） */
 const urgentOptions = YES_NO_OPTIONS;
+
+/** 提交人下拉选项：唯一来源 src/types */
+const submitterOptions = asSelectOptions(SUBMITTER_OPTIONS);
 
 /**
  * 开发时长计算规则（表单实时预览与提交落库统一走此函数）：
@@ -129,6 +135,8 @@ const WIDTH = {
   currentNode: 180,
   /** 是否加急：是 / 否 */
   isUrgent: 120,
+  /** 提交人：黄傲 / 陈婷婷 */
+  submitter: 120,
 } as const;
 
 /** 组装 antd Form 的 initialValues：date/releaseDate 字符串转 dayjs；创建模式默认今天 + WMS + 方案中 */
@@ -144,6 +152,8 @@ function buildFormInitial(
       currentNode: "方案中",
       isUrgent: false,
       isReleased: false,
+      // 不预填 → Select 显示占位文案、触发必填校验；历史数据编辑时回填需求上的值
+      submittedBy: undefined,
     };
   }
   return {
@@ -159,6 +169,7 @@ function buildFormInitial(
       ? dayjs(initialValues.releaseDate)
       : undefined,
     remark: initialValues?.remark,
+    submittedBy: initialValues?.submittedBy,
   };
 }
 
@@ -234,6 +245,8 @@ export default function RequirementForm({
           values.isReleased,
           values.isReleased ? values.releaseDate : undefined,
         ),
+        // 提交人：必填，由 Form 校验把关；兜底取 undefined 让后端触发必填错误
+        submittedBy: values.submittedBy ?? "",
       };
       await onSubmit(payload);
     } finally {
@@ -298,6 +311,20 @@ export default function RequirementForm({
             rules={[{ required: true, message: "请选择系统" }]}
           >
             <SystemSelectFormField width={WIDTH.system} />
+          </Form.Item>
+
+          <Form.Item
+            label="提交人"
+            name="submittedBy"
+            rules={[{ required: true, message: "请选择提交人" }]}
+            extra="需求提交人，黄傲 / 陈婷婷（历史记录可为空）"
+          >
+            <Select
+              style={{ width: WIDTH.submitter }}
+              placeholder="请选择提交人"
+              options={submitterOptions}
+              allowClear
+            />
           </Form.Item>
 
           <Form.Item

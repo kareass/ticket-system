@@ -6,12 +6,14 @@ import dayjs from "dayjs";
 import type { Dayjs } from "dayjs";
 import { Button, Card, DatePicker, Form, Input, Select, Switch } from "antd";
 import type { WorkOrder, WorkOrderStatus } from "@/types";
-import { WORK_ORDER_STATUS_OPTIONS, asSelectOptions } from "@/types";
+import { SUBMITTER_OPTIONS, WORK_ORDER_STATUS_OPTIONS, asSelectOptions } from "@/types";
 import { today } from "@/lib/utils";
 import SystemSelect from "@/components/common/SystemSelect";
 
 // 工单状态可选项（唯一来源：src/types，与列表页内联可改共用同一份）
 const STATUS_OPTIONS = asSelectOptions(WORK_ORDER_STATUS_OPTIONS);
+// 提交人可选项（唯一来源：src/types，与列表页内联可改共用同一份）
+const SUBMITTER_SELECT_OPTIONS = asSelectOptions(SUBMITTER_OPTIONS);
 
 /**
  * 工单表单提交值
@@ -38,6 +40,8 @@ export interface WorkOrderFormValues {
   requirementContent?: string;
   /** 备注（可空） */
   remark?: string;
+  /** 提交人（必填：黄傲 / 陈婷婷） */
+  submittedBy: string;
 }
 
 interface WorkOrderFormProps {
@@ -68,6 +72,7 @@ interface WorkOrderFormFields {
   requirementId?: string;
   requirementContent?: string;
   remark?: string;
+  submittedBy?: string;
 }
 
 /**
@@ -83,6 +88,8 @@ const WIDTH = {
   status: 160,
   /** 需求ID 文本：如 R-2026-001 */
   requirementId: 220,
+  /** 提交人：黄傲 / 陈婷婷 */
+  submitter: 120,
 } as const;
 
 /**
@@ -117,6 +124,8 @@ function buildFormInitial(
       status: "新建",
       requirementId: "",
       requirementContent: "",
+      // 不预填 → Select 显示占位文案、触发必填校验；历史数据编辑时回填工单上的值
+      submittedBy: undefined,
     };
   }
   return {
@@ -129,6 +138,7 @@ function buildFormInitial(
     requirementId: initialValues?.requirementId,
     requirementContent: initialValues?.requirementContent,
     remark: initialValues?.remark,
+    submittedBy: initialValues?.submittedBy,
   };
 }
 
@@ -195,6 +205,8 @@ export default function WorkOrderForm({
         // 备注始终显式传字符串（清空时传 ""）：undefined 会被 JSON 丢弃，
         // 导致编辑时「清空备注」无法下发到后端（后端仅在收到 key 时才置空）
         remark: values.remark?.trim() ?? "",
+        // 提交人：必填，由 Form 校验把关；兜底取 undefined 让后端触发必填错误
+        submittedBy: values.submittedBy ?? "",
       };
       await onSubmit(payload);
     } finally {
@@ -251,6 +263,20 @@ export default function WorkOrderForm({
             rules={[{ required: true, message: "请选择系统" }]}
           >
             <SystemSelectFormField width={WIDTH.system} />
+          </Form.Item>
+
+          <Form.Item
+            label="提交人"
+            name="submittedBy"
+            rules={[{ required: true, message: "请选择提交人" }]}
+            extra="工单提交人，黄傲 / 陈婷婷（历史记录可为空）"
+          >
+            <Select
+              style={{ width: WIDTH.submitter }}
+              placeholder="请选择提交人"
+              options={SUBMITTER_SELECT_OPTIONS}
+              allowClear
+            />
           </Form.Item>
 
           <Form.Item

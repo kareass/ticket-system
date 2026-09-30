@@ -28,19 +28,29 @@ export const workOrderApi = {
   },
   /**
    * 工单转需求（一对一）：返回新建需求 + 已置标记的工单。
-   * opts.requirementId / opts.requirementContent 为本次转出的值（列表「转需求」弹框中填写）；
-   * 二者均可缺省 —— 缺省时后端退回工单上已登记的值。
+   * opts.requirementId / opts.requirementContent / opts.submittedBy 为本次转出的值
+   * （列表「转需求」弹框中填写）；三者均可缺省 —— 缺省时后端退回工单上已登记的值。
    * 注意 requirementContent 传 "" 表示「显式清空」（转出的需求内容为空），与缺省语义不同。
+   * submittedBy 未传时默认用工单的 submittedBy（继承自工单）。
    */
   convert: async (
     id: string,
-    opts?: { requirementId?: string; requirementContent?: string },
+    opts?: {
+      requirementId?: string;
+      requirementContent?: string;
+      submittedBy?: string;
+    },
   ): Promise<{ requirement: Requirement; workOrder: WorkOrder }> => {
-    const payload: { requirementId?: string; requirementContent?: string } = {};
+    const payload: {
+      requirementId?: string;
+      requirementContent?: string;
+      submittedBy?: string;
+    } = {};
     if (opts?.requirementId !== undefined) payload.requirementId = opts.requirementId;
     if (opts?.requirementContent !== undefined) {
       payload.requirementContent = opts.requirementContent;
     }
+    if (opts?.submittedBy !== undefined) payload.submittedBy = opts.submittedBy;
     return (
       await http.post<{ requirement: Requirement; workOrder: WorkOrder }>(
         `/work-orders/${id}/convert`,

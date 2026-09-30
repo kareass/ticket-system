@@ -31,6 +31,8 @@ export default function CreateRequirementPage() {
         isReleased: values.isReleased,
         releaseDate: values.isReleased ? values.releaseDate : undefined,
         remark: values.remark,
+        // 提交人：表单必填校验把关，未填会被拦在前端
+        submittedBy: values.submittedBy,
       });
       message.success("需求已创建");
       router.push("/requirements");

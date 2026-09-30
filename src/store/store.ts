@@ -24,12 +24,16 @@ interface AppState {
   /** 工单转需求（一对一）：后端创建需求并置工单标记，本地同步两表 */
   /**
    * 工单转需求（一对一）。
-   * opts 为弹框中填写的需求ID / 需求内容，均可缺省（缺省时用后端工单上已登记的值）；
-   * requirementContent 传 "" 表示将需求内容置空。
+   * opts 为弹框中填写的需求ID / 需求内容 / 需求提交人，均可缺省（缺省时用后端工单上已登记的值）；
+   * requirementContent 传 "" 表示将需求内容置空；submittedBy 未传时默认用工单上的提交人。
    */
   convertWorkOrder: (
     id: string,
-    opts?: { requirementId?: string; requirementContent?: string },
+    opts?: {
+      requirementId?: string;
+      requirementContent?: string;
+      submittedBy?: string;
+    },
   ) => Promise<Requirement>;
 
   // 需求
