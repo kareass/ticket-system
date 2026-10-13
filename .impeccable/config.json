@@ -1,0 +1,125 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "low-contrast",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/challenger-boarding-gate.html"
+        ],
+        "createdAt": "2026-10-13T14:59:01.112Z",
+        "reason": "Agent: the mock's palette is fixed by the board brief for this world (灰 #9AA0A6 次级, 告警暖橙 #E4572E 专用于变更标记); all remaining low-contrast hits are those two mandated colors used per the brief, not fixable without violating the direction contract"
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/model-pick.html"
+        ],
+        "createdAt": "2026-10-13T14:59:14.783Z",
+        "reason": "User-specified density: rows at ~30px with 1px rules and zero vertical cell padding is the mandated dense-table form."
+      },
+      {
+        "rule": "low-contrast",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/model-pick.html"
+        ],
+        "createdAt": "2026-10-13T14:59:19.380Z",
+        "reason": "Remaining findings are deliberate empty/pending marks from the user-specified palette: 灰 #8A8577 = 未填留白/未同步/非当前联, and the 新建 半高字 blend. Functional text (headers, legends, filter labels, placeholders, 取消) was moved to #6B6555 which passes AA."
+      },
+      {
+        "rule": "cream-palette",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/model-pick.html"
+        ],
+        "createdAt": "2026-10-13T14:59:20.418Z",
+        "reason": "User-specified palette: 无碳复写纸米黄 #F2EBDC is the world's mandated page/table ground."
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/challenger-jp-density.html"
+        ],
+        "createdAt": "2026-10-13T15:03:34.324Z",
+        "reason": "Dense-band exception: fixed-height section bands (phead 56px / stats 54px / tools 44px / gfoot 26px) carry a hairline border as a DIVIDER between regions, not as a container edge; their text is vertically centred with 7-19px slack. The grid case is the table header band on a bordered dense table, which is the mandated form for this direction."
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/assigned.html"
+        ],
+        "createdAt": "2026-10-13T15:04:28.940Z",
+        "reason": "Dense-band exception: stats/bar are fixed-height full-bleed bands whose hairline borders are DIVIDERS between regions, not container edges; their contents are vertically centred with slack. .tr rows and .sheet are the mandated dense-table form (34px module, zero vertical cell padding)."
+      },
+      {
+        "rule": "em-dash-overuse",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/assigned.html"
+        ],
+        "createdAt": "2026-10-13T15:04:30.036Z",
+        "reason": "False positive: all 9 em-dashes are empty-cell placeholders in a data table (提交人/需求内容/备注/需求ID/区位码 with no seed value), which is the standard Chinese admin-table convention for a null field - not prose punctuation."
+      },
+      {
+        "rule": "gray-on-color",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/challenger-transit-map.html"
+        ],
+        "createdAt": "2026-10-13T15:04:47.384Z",
+        "reason": "Verified false positive: WCAG contrast computed by hand - #A8AEBE on #101F3C = 7.38:1 and #B9BDC7 on #101F3C = 8.66:1, both pass AA (4.5) and AAA (7.0) for normal text. The rule fires on any gray text over a non-neutral ground without evaluating actual contrast; here the midnight-enamel ground with porcelain-gray text is the world's mandated palette."
+      },
+      {
+        "rule": "cream-palette",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/press-journal.html"
+        ],
+        "createdAt": "2026-10-13T15:11:35.663Z",
+        "reason": "Sanctioned exception: the cream #F7F3E8 is this direction's MATERIAL (胶版纸 ground for a letterpress print convention), not a reflex warm-off-white surface. The brief deliberately avoided the beige reflex where it would be reflexive - the two 'soft' cards in this batch are 冷雾蓝 and 苔绿 precisely to dodge it."
+      },
+      {
+        "rule": "tiny-text",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/sharp-swiss.html"
+        ],
+        "createdAt": "2026-10-13T15:11:56.059Z",
+        "reason": "Swiss small-label tier: the only sub-12px text is the letterspaced label tier (th headers, 筛选标签, .eyebrow, 统计标签, 页脚注) plus the dashed 未转需求 tag. No body text is below 12px (body 13px, cells 13px, inputs 12px); the row-action buttons were raised 11->12px. 11px letterspaced labels ARE the Swiss signature and meet the >=11px floor."
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/dark-console.html"
+        ],
+        "createdAt": "2026-10-13T15:13:42.596Z",
+        "reason": "Dense-band exception: .stats is a fixed-height tinted band whose contents are vertically centred with slack; .grid is the bordered container of the mandated dense table (table header row sits at its top edge, which is the correct form for this direction)."
+      },
+      {
+        "rule": "low-contrast",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/soft-mist.html"
+        ],
+        "createdAt": "2026-10-13T15:14:07.923Z",
+        "reason": "Agent: the direction brief fixes this world's palette to exactly six tokens (强调 #6E8CA8 among them) and requires the accent to appear on the primary buttons; #FFFFFF on #6E8CA8 is 3.5:1, which the brief's palette cannot fix without inventing a seventh colour. All other low-contrast text in this mock was moved to #2F3A45 (11.6:1) so only the two mandated accent fills remain."
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/soft-moss.html"
+        ],
+        "createdAt": "2026-10-13T15:14:08.197Z",
+        "reason": "Dense-band exception: .filter pills are 34px tall with 12px text and 11px vertical slack; .foot is a 48px band with centred content; .card is a card whose dense table intentionally bleeds to its rounded edge (clipped via overflow:hidden). Vertical slack exists in every case - the detector cannot see centring."
+      }
+    ]
+  }
+}

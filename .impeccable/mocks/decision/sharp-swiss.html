@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>工单管理 · 四川物流工单系统</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600&family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+SC:wght@400;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;border-radius:0}
+body{font:400 13px/1.5 "Noto Sans SC",sans-serif;color:#000;background:#fff;display:flex;min-height:100vh}
+.mono{font-family:"IBM Plex Mono",monospace}
+.lat{font-family:"Barlow Condensed",sans-serif;font-weight:600;letter-spacing:.18em;text-transform:uppercase}
+/* ---------- 左侧导航 ---------- */
+aside{flex:0 0 190px;border-right:2px solid #000;display:flex;flex-direction:column}
+.brand{padding:20px 16px 18px;border-bottom:2px solid #000}
+.brand b{display:block;font-size:14px;font-weight:700;letter-spacing:.02em}
+.brand span{display:block;margin-top:6px;font-size:11px;color:#767676}
+nav{padding-top:12px}
+nav a{display:block;height:34px;line-height:34px;padding:0 16px;font-size:13px;color:#000;text-decoration:none;border-left:4px solid transparent}
+nav a.on{color:#E5261F;font-weight:700;border-left-color:#E5261F}
+.navfoot{margin-top:auto;padding:14px 16px;border-top:1px solid #E5E5E5;font-size:11px;line-height:1.8;color:#767676}
+/* ---------- 页头 ---------- */
+main{flex:1;min-width:0;padding:20px 26px 0}
+.top{display:flex;align-items:flex-end;justify-content:space-between;padding-bottom:14px;border-bottom:2px solid #000}
+.eyebrow{font-size:11px;color:#767676;margin-bottom:8px}
+h1{font-size:28px;font-weight:700;letter-spacing:-.02em;line-height:1.1}
+.stats{display:flex;gap:28px}
+.stat{text-align:right}
+.stat b{display:block;font-family:"IBM Plex Mono",monospace;font-size:22px;font-weight:500;letter-spacing:-.02em;line-height:1.2}
+.stat span{display:block;font-size:11px;letter-spacing:.08em;color:#767676}
+/* ---------- 工具栏 ---------- */
+.bar{display:flex;align-items:center;gap:10px;padding:14px 0}
+.f{display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border:1px solid #000}
+.f i{font-style:normal;font-size:11px;letter-spacing:.1em;color:#767676}
+.f b{font-weight:400}
+.caret{display:inline-block;width:0;height:0;margin-left:8px;border-left:4px solid transparent;border-right:4px solid transparent;border-top:5px solid #000;vertical-align:2px}
+.sp{flex:1}
+.btn{height:34px;padding:0 16px;font:700 12px "Noto Sans SC",sans-serif;letter-spacing:.06em;color:#000;background:#fff;border:1px solid #000}
+.btn.p{color:#fff;background:#E5261F;border-color:#E5261F}
+/* ---------- 表格 ---------- */
+table{width:100%;border-collapse:collapse;table-layout:fixed}
+th{height:34px;padding:0 10px;text-align:left;font-size:11px;font-weight:700;letter-spacing:.06em;white-space:nowrap;background:#F0F0F0;border-bottom:2px solid #000}
+td{height:34px;padding:0 10px;border-bottom:1px solid #E5E5E5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
+tbody tr:last-child td{border-bottom:2px solid #000}
+.dim{color:#767676}
+.box{border:1px dashed #767676;padding:0 4px;font-size:11px}
+.sq{display:inline-block;width:8px;height:8px;margin-right:6px;border:1px solid #000;vertical-align:1px}
+.sq.fill{background:#000}
+.sq.dash{border-style:dashed}
+.ul{border-bottom:1px solid #000}
+.dl{text-decoration:underline;text-decoration-style:double}
+.st{text-decoration:line-through}
+/* ---------- 行内编辑 ---------- */
+tr.ed td:first-child{position:relative}
+tr.ed td:first-child::before{content:"";position:absolute;left:0;top:-1px;bottom:0;width:4px;background:#E5261F}
+tr.ed td{border-bottom:2px solid #000}
+.ib,.sb{height:26px;overflow:hidden;text-overflow:ellipsis;background:#fff;border:1px solid #000}
+.ib{display:block;line-height:24px;padding:0 6px}
+.ib.m{font-family:"IBM Plex Mono",monospace;font-size:12px;line-height:24px}
+.ib.dirty{border-width:2px}
+.sb{display:flex;align-items:center;justify-content:space-between;padding:0 6px}
+.mini{height:24px;padding:0 8px;font:700 12px "Noto Sans SC",sans-serif;letter-spacing:.04em;color:#000;background:#fff;border:1px solid #000}
+.mini.k{color:#fff;background:#000}
+/* ---------- 表尾 ---------- */
+.foot{display:flex;align-items:center;justify-content:space-between;padding:12px 0 20px;font-size:11px;color:#767676}
+.foot em{font-style:normal;font-family:"IBM Plex Mono",monospace;color:#000}
+.legend{display:flex;gap:18px;align-items:center}
+</style>
+</head>
+<body>
+<aside>
+  <div class="brand">
+    <b>四川物流工单系统</b>
+    <span class="lat">Sichuan Logistics · Internal</span>
+  </div>
+  <nav>
+    <a href="#">首页</a>
+    <a href="#" class="on">工单管理</a>
+    <a href="#">需求管理</a>
+    <a href="#">会议纪要</a>
+    <a href="#">工作提醒</a>
+  </nav>
+  <div class="navfoot">无账号体系<br>所有日期默认今天</div>
+</aside>
+
+<main>
+  <div class="top">
+    <div>
+      <div class="eyebrow lat">Work Orders / 工单台账</div>
+      <h1>工单管理</h1>
+    </div>
+    <div class="stats">
+      <div class="stat"><b>3</b><span>工单总数</span></div>
+      <div class="stat"><b>1</b><span>已转需求</span></div>
+      <div class="stat"><b>3</b><span>需求总数</span></div>
+    </div>
+  </div>
+
+  <div class="bar">
+    <span class="f"><i>系统</i><b>全部</b><span class="caret"></span></span>
+    <span class="f"><i>状态</i><b>全部</b><span class="caret"></span></span>
+    <span class="f"><i>提交人</i><b>全部</b><span class="caret"></span></span>
+    <span class="sp"></span>
+    <button class="btn p">新增工单</button>
+    <button class="btn">刷新</button>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:96px">日期</th>
+        <th style="width:176px">工单标题</th>
+        <th style="width:70px">系统</th>
+        <th style="width:74px">状态</th>
+        <th style="width:74px">提交人</th>
+        <th style="width:88px">是否转需求</th>
+        <th style="width:118px">需求ID</th>
+        <th style="width:204px">需求内容</th>
+        <th style="width:148px">备注</th>
+        <th style="width:128px">操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="ed">
+        <td class="mono">2026-09-01</td>
+        <td><span class="ib">WMS 出库单打印优化</span></td>
+        <td><span class="sb">WMS<span class="caret"></span></span></td>
+        <td><span class="sb">新建<span class="caret"></span></span></td>
+        <td><span class="sb dim">—<span class="caret"></span></span></td>
+        <td><span class="sb">是<span class="caret"></span></span></td>
+        <td><span class="ib m">R-2026-001</span></td>
+        <td><span class="ib">出库单打印模板支持自定义纸张大小，增加批次号展示。</span></td>
+        <td><span class="ib dirty">业务提出，已确认转为需求跟进。</span></td>
+        <td><button class="mini k">提交</button> <button class="mini">取消</button></td>
+      </tr>
+      <tr>
+        <td class="mono">2026-09-03</td>
+        <td>OMS 订单同步异常排查</td>
+        <td>OMS</td>
+        <td><span class="sq"></span>新建</td>
+        <td class="dim">—</td>
+        <td><span class="sq"></span>否</td>
+        <td class="dim">—</td>
+        <td class="dim">—</td>
+        <td class="dim">—</td>
+        <td><button class="mini">编辑</button> <button class="mini">转需求</button></td>
+      </tr>
+      <tr>
+        <td class="mono">2026-09-05</td>
+        <td>TMS 在途节点提醒功能咨询</td>
+        <td>TMS</td>
+        <td><span class="sq"></span>新建</td>
+        <td class="dim">—</td>
+        <td><span class="sq"></span>否</td>
+        <td><span class="mono dim">R-2026-005</span> <span class="box dim">未转需求</span></td>
+        <td class="dim">—</td>
+        <td>待确认，暂不处理。</td>
+        <td><button class="mini">编辑</button> <button class="mini">转需求</button></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="foot">
+    <div>共 <em>3</em> 条 ｜ 编辑中 <em>1</em> 条（粗框为已改动，未提交切页即丢失）</div>
+    <div class="legend">
+      <span><span class="sq"></span>新建</span>
+      <span class="ul">处理中</span>
+      <span class="dl">已处理</span>
+      <span class="st">已关闭</span>
+      <span><span class="sq dash"></span>待优化</span>
+    </div>
+  </div>
+</main>
+</body>
+</html>

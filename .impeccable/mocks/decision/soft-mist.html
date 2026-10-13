@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1440">
+<title>四川物流工单系统 · 工单管理</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{font-family:'Noto Sans SC',-apple-system,'Segoe UI',sans-serif;font-weight:400;background:#EEF1F4;
+       color:#2F3A45;letter-spacing:.01em;-webkit-font-smoothing:antialiased}
+  .mono{font-family:'IBM Plex Mono',ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums}
+  button{font-family:inherit;letter-spacing:inherit;cursor:default}
+  .app{display:grid;grid-template-columns:208px 1fr;height:100%;min-height:820px}
+
+  /* ---------- 左侧导航 ---------- */
+  .nav{background:#FFFFFF;border-right:1px solid #DDE3E9;display:flex;flex-direction:column;padding-top:24px}
+  .brand{padding:0 20px 24px;font-size:13px;font-weight:500;letter-spacing:.03em}
+  .navitem{height:38px;display:flex;align-items:center;padding:0 20px;font-size:13px;
+           color:#2F3A45;border-left:3px solid transparent}
+  .navitem.cur{color:#2F3A45;font-weight:500;border-left-color:#6E8CA8}
+  .navfoot{margin-top:auto;padding:0 20px 20px;font-size:11px;color:#2F3A45;letter-spacing:.06em;line-height:1.9}
+
+  /* ---------- 主区 ---------- */
+  .main{padding:26px 28px 22px;display:flex;flex-direction:column;min-width:0}
+  .toprow{display:flex;align-items:flex-end;justify-content:space-between}
+  h1{font-size:20px;font-weight:500;letter-spacing:.02em}
+  .stats{display:flex;gap:34px}
+  .stat{text-align:right}
+  .stat b{display:block;font-family:'IBM Plex Mono',monospace;font-size:17px;font-weight:500;line-height:1.35}
+  .stat span{font-size:11px;color:#2F3A45;font-weight:500;letter-spacing:.08em}
+
+  .bar{display:flex;align-items:center;gap:10px;margin-top:20px;padding-bottom:16px;border-bottom:1px solid #DDE3E9}
+  .spacer{flex:1}
+  .filt{height:34px;display:inline-flex;align-items:center;gap:9px;padding:0 13px;background:#FFFFFF;
+        border:1px solid #DDE3E9;border-radius:10px;font-size:12px;color:#2F3A45}
+  .filt b{font-weight:500;color:#2F3A45}
+  .caret{width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;
+         border-top:5px solid #7C8794;display:inline-block}
+  .btn{height:34px;padding:0 16px;display:inline-flex;align-items:center;border:1px solid #DDE3E9;
+       border-radius:10px;background:#FFFFFF;color:#2F3A45;font-size:12px}
+  .btn.pri{background:#6E8CA8;border-color:#6E8CA8;color:#FFFFFF;font-weight:500}
+
+  /* ---------- 表格卡 ---------- */
+  .card{flex:1;display:flex;flex-direction:column;margin-top:16px;background:#FFFFFF;
+        border:1px solid #DDE3E9;border-radius:10px;overflow:hidden}
+  table{width:100%;border-collapse:collapse;table-layout:fixed}
+  th{height:36px;padding:0 12px;text-align:left;font-size:11px;font-weight:500;color:#2F3A45;
+     letter-spacing:.08em;border-bottom:1px solid #DDE3E9;white-space:nowrap}
+  td{height:40px;padding:0 12px;font-size:12px;border-bottom:1px solid #DDE3E9;
+     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:middle}
+  td.ttl{font-weight:500}
+  .mk{padding:0}
+  .mark{display:block;width:3px;height:40px;background:transparent;border-radius:2px}
+  tr.edit .mark{background:#6E8CA8}
+  tr.edit td{padding:0 6px}
+  .dot{width:6px;height:6px;border-radius:50%;background:#7C8794;display:inline-block;
+       margin-right:7px;vertical-align:middle}
+  .fi{height:30px;display:flex;align-items:center;padding:0 9px;border:1px solid #DDE3E9;
+      border-radius:10px;background:#FFFFFF;font-size:12px;color:#2F3A45;overflow:hidden}
+  .fi.sel{justify-content:space-between;color:#2F3A45}
+  .fi.sel .caret{border-top-color:#7C8794}
+  .act{display:flex;align-items:center;gap:8px}
+  .lnk{font-size:12px;color:#2F3A45}
+  .sep{color:#7C8794;font-size:12px}
+  .btn.sm{height:28px;padding:0 12px}
+
+  .cfoot{margin-top:auto;display:flex;align-items:center;justify-content:space-between;
+         padding:12px 16px;border-top:1px solid #DDE3E9;font-size:11px;color:#2F3A45;letter-spacing:.05em}
+  .cfoot .right{display:flex;align-items:center;gap:14px}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="nav">
+    <div class="brand">四川物流工单系统</div>
+    <div class="navitem">首页</div>
+    <div class="navitem cur">工单管理</div>
+    <div class="navitem">需求管理</div>
+    <div class="navitem">会议纪要</div>
+    <div class="navitem">工作提醒</div>
+    <div class="navfoot">行内修改<br>提交后保存</div>
+  </aside>
+
+  <main class="main">
+    <div class="toprow">
+      <h1>工单管理</h1>
+      <div class="stats">
+        <div class="stat"><b class="mono">3</b><span>工单总数</span></div>
+        <div class="stat"><b class="mono">1</b><span>已转需求</span></div>
+        <div class="stat"><b class="mono">2</b><span>未转需求</span></div>
+      </div>
+    </div>
+
+    <div class="bar">
+      <span class="filt">系统<b>全部</b><i class="caret"></i></span>
+      <span class="filt">状态<b>全部</b><i class="caret"></i></span>
+      <span class="filt">提交人<b>全部</b><i class="caret"></i></span>
+      <span class="spacer"></span>
+      <button class="btn" type="button">刷新</button>
+      <button class="btn pri" type="button">新增工单</button>
+    </div>
+
+    <section class="card">
+      <table>
+        <colgroup>
+          <col style="width:10px"><col style="width:92px"><col style="width:178px"><col style="width:74px">
+          <col style="width:86px"><col style="width:88px"><col style="width:88px"><col style="width:128px">
+          <col style="width:208px"><col style="width:128px"><col style="width:96px">
+        </colgroup>
+        <thead>
+          <tr>
+            <th></th><th>日期</th><th>工单标题</th><th>系统</th><th>状态</th><th>提交人</th>
+            <th>是否转需求</th><th>需求ID</th><th>需求内容</th><th>备注</th><th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="mk"><span class="mark"></span></td>
+            <td class="mono">2026-09-01</td>
+            <td class="ttl">WMS 出库单打印优化</td>
+            <td>WMS</td>
+            <td><span class="dot"></span>新建</td>
+            <td>—</td>
+            <td>是</td>
+            <td class="mono">R-2026-001</td>
+            <td>出库单打印模板支持自定义纸张大小，增加批次号展示。</td>
+            <td>业务提出，已确认转为需求跟进。</td>
+            <td><span class="act"><span class="lnk">编辑</span></span></td>
+          </tr>
+          <tr>
+            <td class="mk"><span class="mark"></span></td>
+            <td class="mono">2026-09-03</td>
+            <td class="ttl">OMS 订单同步异常排查</td>
+            <td>OMS</td>
+            <td><span class="dot"></span>新建</td>
+            <td>—</td>
+            <td>否</td>
+            <td>—</td>
+            <td>—</td>
+            <td>—</td>
+            <td><span class="act"><span class="lnk">编辑</span><span class="sep">·</span><span class="lnk">转需求</span></span></td>
+          </tr>
+          <tr class="edit">
+            <td class="mk"><span class="mark"></span></td>
+            <td><span class="fi mono">2026-09-05</span></td>
+            <td><span class="fi">TMS 在途节点提醒功能咨询</span></td>
+            <td><span class="fi sel">TMS<i class="caret"></i></span></td>
+            <td><span class="fi sel">新建<i class="caret"></i></span></td>
+            <td><span class="fi sel">请选择<i class="caret"></i></span></td>
+            <td><span class="fi sel">否<i class="caret"></i></span></td>
+            <td><span class="fi mono">R-2026-005</span></td>
+            <td><span class="fi">运单在途节点是否需要短信提醒，先与承运方确认需求范围。</span></td>
+            <td><span class="fi">待确认，暂不处理。</span></td>
+            <td><span class="act"><button class="btn pri sm" type="button">提交</button><span class="lnk">取消</span></span></td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="cfoot">
+        <span>共 <span class="mono">3</span> 条 · 每页 <span class="mono">20</span> 条</span>
+        <span class="right">
+          <span>行内修改点击「提交」后保存</span>
+          <span>— 表示无内容</span>
+          <span>第 <span class="mono">1</span> / <span class="mono">1</span> 页</span>
+        </span>
+      </div>
+    </section>
+  </main>
+
+</div>
+</body>
+</html>

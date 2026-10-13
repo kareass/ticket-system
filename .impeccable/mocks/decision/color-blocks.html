@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>工单管理 · 四川物流工单系统</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#FFFFFF;color:#1A1A1A;font:400 12px/1.45 "Noto Sans SC","Microsoft YaHei",sans-serif;-webkit-font-smoothing:antialiased}
+.stage{display:flex;width:1440px;height:900px;overflow:hidden;background:#FFFFFF}
+.mono,.inp,.sel{font-family:"IBM Plex Mono","Noto Sans SC",monospace;font-variant-numeric:tabular-nums}
+/* 次级文字用 #5F666F（5.8:1）—— #8A8F98 作为文字仅 3.25:1，未过 AA，
+   故 #8A8F98 只用于「其他」系统色块与非文字描边 */
+.mut{color:#5F666F}
+/* ---- 左侧导航：无分隔线，靠留白与整块实色 ---- */
+.nav{flex:0 0 200px;padding:30px 22px;display:flex;flex-direction:column}
+.brand{font-size:12px;font-weight:700;line-height:1.5}
+.brand s{display:block;font-size:11px;font-weight:400;color:#5F666F;text-decoration:none;letter-spacing:.18em;margin-top:6px}
+.nav ul{list-style:none;margin-top:44px;display:flex;flex-direction:column;gap:4px}
+.nav a{display:block;padding:9px 12px;font-size:13px;color:#1A1A1A;text-decoration:none}
+.nav a.on{background:#1A1A1A;color:#FFFFFF;font-weight:500}
+/* ---- 主区 ---- */
+.main{flex:1;min-width:0;padding:30px 26px 24px;display:flex;flex-direction:column}
+h1{font-size:22px;font-weight:700;letter-spacing:.01em}
+.stats{margin-top:8px;font-size:12px;color:#5F666F}
+.stats b{font-weight:500;color:#1A1A1A}
+.tools{margin-top:22px;display:flex;align-items:center;justify-content:space-between}
+.filters{display:flex;gap:10px}
+.f{min-width:112px;padding:6px 10px;font-size:12px;background:#EEF0F2;color:#1A1A1A;display:flex;align-items:center;justify-content:space-between}
+.acts{display:flex;gap:10px;align-items:center}
+.btn{font:500 12px/1 "Noto Sans SC",sans-serif;color:#FFFFFF;background:#1A1A1A;border:0;border-radius:0;padding:8px 14px}
+.btn.ghost{color:#1A1A1A;background:#FFFFFF;border:1px solid #8A8F98;font-weight:400}
+i.c{display:inline-block;width:6px;height:6px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);vertical-align:2px}
+/* ---- 表格：无灰线，分区靠色块与留白 ---- */
+table{width:100%;margin-top:26px;border-collapse:collapse;table-layout:fixed}
+th{font-size:11px;font-weight:500;color:#5F666F;letter-spacing:.08em;text-align:left;padding:0 10px 9px;border-bottom:2px solid #1A1A1A}
+td{padding:0 10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle}
+tbody tr{height:36px}
+td.sw{padding:0}
+td.title{font-weight:500}
+td.cnt{font-size:12px}
+.chip{display:inline-block;padding:3px 9px;font-size:11px;font-weight:500}
+/* 系统色（高饱和整块）：白字 / 深字按对比度选择，全部 ≥ AA */
+.s-WMS{background:#1D6FD4;color:#FFFFFF}
+.s-ERP{background:#7A3FBF;color:#FFFFFF}
+.s-TMS{background:#E07B1A;color:#1A1A1A}
+.s-SCM{background:#1F9D57;color:#1A1A1A}
+.s-TRC{background:#C42B7A;color:#FFFFFF}
+.s-OTH{background:#8A8F98;color:#1A1A1A}
+.st-new{background:#1A1A1A;color:#FFFFFF}
+a.op{color:#1A1A1A;text-decoration:none;font-size:12px;margin-right:12px;border-bottom:1px solid #8A8F98;padding-bottom:1px}
+/* ---- 行内编辑行：草稿门，必须显式提交 ---- */
+tr.edit td{border-top:2px solid #1A1A1A;border-bottom:2px solid #1A1A1A}
+tr.edit{height:46px}
+.inp,.sel{display:inline-block;max-width:100%;padding:5px 9px;font-size:12px;background:#EEF0F2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle}
+.sel{padding-right:8px}
+/* .sel 基础底色晚于系统色类声明，需显式提权，编辑行的「系统」下拉才带上本行颜色 */
+.sel.s-TMS{background:#E07B1A;color:#1A1A1A}
+.sel i{margin-left:8px}
+.ph{color:#5F666F}
+.btn.mini{font-size:11px;padding:6px 11px;vertical-align:middle}
+.foot{margin-top:auto;padding-top:18px;font-size:11px;color:#5F666F}
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <nav class="nav">
+    <div class="brand">四川物流工单系统<s>WORK ORDER</s></div>
+    <ul>
+      <li><a href="#">首页</a></li>
+      <li><a href="#" class="on">工单管理</a></li>
+      <li><a href="#">需求管理</a></li>
+      <li><a href="#">会议纪要</a></li>
+      <li><a href="#">工作提醒</a></li>
+    </ul>
+  </nav>
+
+  <main class="main">
+    <h1>工单管理</h1>
+    <p class="stats">工单共 <b class="mono">3</b> 条 · 已转需求 <b class="mono">1</b> 条 · 未转需求 <b class="mono">2</b> 条</p>
+
+    <div class="tools">
+      <div class="filters">
+        <span class="f"><span class="mut">全部系统</span><i class="c"></i></span>
+        <span class="f"><span class="mut">全部状态</span><i class="c"></i></span>
+        <span class="f"><span class="mut">全部提交人</span><i class="c"></i></span>
+      </div>
+      <div class="acts">
+        <button class="btn">新增工单</button>
+        <button class="btn ghost">刷新</button>
+      </div>
+    </div>
+
+    <table>
+      <colgroup>
+        <col style="width:40px"><col style="width:88px"><col style="width:160px"><col style="width:84px">
+        <col style="width:68px"><col style="width:64px"><col style="width:78px"><col style="width:96px">
+        <col style="width:210px"><col style="width:150px"><col style="width:108px">
+      </colgroup>
+      <thead>
+        <tr>
+          <th></th><th>日期</th><th>工单标题</th><th>系统</th><th>状态</th><th>提交人</th>
+          <th>是否转需求</th><th>需求ID</th><th>需求内容</th><th>备注</th><th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="sw s-WMS"></td>
+          <td class="mono">2026-09-01</td>
+          <td class="title">WMS 出库单打印优化</td>
+          <td><span class="chip s-WMS">WMS</span></td>
+          <td><span class="chip st-new">新建</span></td>
+          <td class="mut">—</td>
+          <td><span class="chip s-WMS">是</span></td>
+          <td class="mono" style="color:#1D6FD4;font-weight:500">R-2026-001</td>
+          <td class="cnt">出库单打印模板支持自定义纸张大小，增加批次号展示。</td>
+          <td class="cnt">业务提出，已确认转为需求跟进。</td>
+          <td><a class="op" href="#">编辑</a></td>
+        </tr>
+        <tr>
+          <td class="sw s-OTH"></td>
+          <td class="mono">2026-09-03</td>
+          <td class="title">OMS 订单同步异常排查</td>
+          <td><span class="chip s-OTH">OMS</span></td>
+          <td><span class="chip st-new">新建</span></td>
+          <td class="mut">—</td>
+          <td class="mut">否</td>
+          <td class="mut">—</td>
+          <td class="mut">—</td>
+          <td class="mut">—</td>
+          <td><a class="op" href="#">编辑</a><a class="op" href="#">转需求</a></td>
+        </tr>
+        <tr class="edit">
+          <td class="sw s-TMS"></td>
+          <td><span class="inp">2026-09-05</span></td>
+          <td class="title">TMS 在途节点提醒功能咨询</td>
+          <td><span class="sel s-TMS">TMS<i class="c"></i></span></td>
+          <td><span class="sel">新建<i class="c"></i></span></td>
+          <td><span class="sel ph">选择提交人<i class="c"></i></span></td>
+          <td><span class="sel">否<i class="c"></i></span></td>
+          <td><span class="inp">R-2026-005</span></td>
+          <td><span class="inp ph">填写需求内容</span></td>
+          <td><span class="inp">待确认，暂不处理。</span></td>
+          <td><button class="btn mini">提交</button> <a class="op mut" href="#">取消</a></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p class="foot">行内修改需点击「提交」才会保存 —— 未提交直接切换页面即丢失。</p>
+  </main>
+
+</div>
+</body>
+</html>

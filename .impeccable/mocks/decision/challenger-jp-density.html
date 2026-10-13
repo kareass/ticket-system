@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>工单管理 · 四川物流工单系统</title>
+<link rel="preconnect" href="https://fonts.gstatic.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{--ink:#14161A;--red:#D93025;--line:#E8EAED;--mid:#5F6368;--sans:"Noto Sans SC",sans-serif;--mono:"IBM Plex Mono","Noto Sans SC",monospace}
+*{box-sizing:border-box;margin:0;padding:0}
+body{width:1440px;height:900px;overflow:hidden;background:#fff;color:var(--ink);font:400 12px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
+.app{display:flex;height:900px}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+/* 左侧导航：目录式编号 + 发丝线分栏 */
+.rail{width:164px;flex:0 0 164px;border-right:1px solid var(--line)}
+.brand{height:56px;padding:12px 14px 0;border-bottom:1px solid var(--line)}
+.brand strong{display:block;font-size:13px;font-weight:700;letter-spacing:.02em}
+.brand em{font:400 11px var(--mono);font-style:normal;color:var(--mid);letter-spacing:.04em}
+.nav{padding:7px 0;border-bottom:1px solid var(--line)}
+.nav a{display:flex;align-items:center;gap:9px;height:29px;padding:0 14px;font-size:12.5px;color:var(--mid);text-decoration:none}
+.nav a i{font:400 11px var(--mono);font-style:normal;color:var(--mid)}
+.nav a.on{background:var(--line);box-shadow:inset 3px 0 0 var(--red);color:var(--ink);font-weight:700}
+.nav a.on i{color:var(--mid);font-weight:600}
+.sec{padding:11px 14px 3px;font-size:11px;font-weight:500;color:var(--mid);letter-spacing:.08em}
+.lg{display:flex;align-items:center;height:25px;padding:0 14px;font-size:12px}
+.lg .nm{flex:1}
+.lg b{font:500 11px var(--mono)}
+.lg.z{color:var(--mid)}
+.lg.z b{color:var(--mid);font-weight:400}
+/* 状态由形态承载：细框 / 粗框 / 实心 / 实心带横杠 / 框内底杠 */
+.blk{display:inline-block;position:relative;width:8px;height:8px;margin-right:6px;border:1px solid var(--ink)}
+.blk.thick{border-width:2px}
+.blk.solid{background:var(--ink)}
+.blk.bar{background:var(--ink);background-clip:content-box;padding-top:3px}
+.blk.slash{background:var(--ink)}
+.blk.slash::after{content:"";position:absolute;left:-1px;top:3px;width:10px;height:1px;background:#fff}
+.lg.z .blk{border-color:var(--mid)}.lg.z .blk.solid,.lg.z .blk.slash{background:var(--mid)}.lg.z .blk.bar{background:var(--mid);background-clip:content-box}
+/* 主区 */
+.main{flex:1;display:flex;flex-direction:column;min-width:0;padding:0 18px 16px}
+.phead{display:flex;align-items:center;height:56px;border-bottom:1px solid var(--line)}
+.phead h1{font-size:17px;font-weight:700;letter-spacing:.01em}
+.phead .meta{margin-left:14px;padding-left:14px;border-left:1px solid var(--line);font-size:11px;color:var(--mid)}
+.phead .meta b{font:500 12px var(--mono);color:var(--ink)}
+.phead .sort{margin-left:auto;font-size:11px;color:var(--mid)}
+.phead .sort b{font:500 11px var(--mono);color:var(--ink)}
+.stats{display:flex;align-items:center;height:54px;border-bottom:1px solid var(--line)}
+.st{flex:1;padding-left:14px;border-left:1px solid var(--line)}
+.st:first-child{border-left:0;padding-left:0}
+.st em{display:block;font-size:11px;font-style:normal;color:var(--mid);letter-spacing:.06em}
+.st b{font:600 20px var(--mono);letter-spacing:-.02em}
+.st b i{font:400 11px var(--mono);font-style:normal;color:var(--mid);margin-left:2px}
+.tools{display:flex;align-items:center;gap:8px;height:44px;border-bottom:1px solid var(--line)}
+.f{display:flex;align-items:center;gap:6px;height:24px;padding:0 9px;border:1px solid var(--line);font-size:12px;font-weight:500}
+.f b{font-size:11px;font-weight:500;color:var(--mid)}
+.f i{font-style:normal;font-size:11px;color:var(--mid)}
+.vr{width:1px;height:20px;background:var(--line)}
+.sp{margin-left:auto}
+.btn{height:24px;padding:0 10px;border:1px solid var(--ink);background:#fff;color:var(--ink);font:500 12px var(--sans)}
+.btn.pri{background:var(--ink);color:#fff}
+/* 密集表：横纵发丝线切栏 */
+.grid{flex:1;display:flex;flex-direction:column;min-height:0;margin-top:14px;border:1px solid var(--line)}
+table{width:100%;table-layout:fixed;border-collapse:collapse}
+th{height:26px;padding:0 8px;background:var(--line);color:var(--mid);font-size:11px;font-weight:500;text-align:left;letter-spacing:.04em;white-space:nowrap;border-right:1px solid #fff}
+td{height:27px;padding:0 8px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);white-space:nowrap;overflow:hidden;vertical-align:middle}
+th:last-child,td:last-child{border-right:0}
+tbody tr:last-child td{border-bottom:0}
+.ttl{font-weight:700}
+.dim td,.dim .ttl{color:var(--mid)}
+.dim .blk{border-color:var(--mid)}.dim .blk.solid,.dim .blk.slash{background:var(--mid)}.dim .blk.bar{background:var(--mid);background-clip:content-box}
+.anom::before{content:"";display:inline-block;width:5px;height:5px;margin-right:5px;vertical-align:1px;background:var(--red)}
+.lk{font-size:11px;color:var(--mid);text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:2px}
+/* 行内编辑行独占视觉 + 可见「提交」 */
+tr.edit td{border-bottom:0;box-shadow:inset 2px 0 0 var(--red)}
+tr.strip td{height:auto;padding:0;border-top:1px solid var(--line);border-bottom:0;box-shadow:inset 2px 0 0 var(--red)}
+.efs{display:flex;align-items:stretch;height:34px}
+.ef{display:flex;align-items:center;gap:6px;padding:0 9px;border-right:1px solid var(--line)}
+.ef b{font-size:11px;font-weight:500;color:var(--mid)}
+.ef.grow{flex:1}
+.ef.grow .inp{flex:1;min-width:0}
+.ef.end{margin-left:auto;border-right:0;font-size:11px;color:var(--mid)}
+.sel,.inp{display:inline-block;height:20px;line-height:18px;padding:0 8px;border:1px solid var(--line);font-size:12px}
+.sel i{font-style:normal;font-size:11px;line-height:1;color:var(--mid);margin-left:8px}
+.inp.ph{color:var(--mid)}
+.bt{display:inline-block;height:20px;line-height:18px;padding:0 8px;border:1px solid var(--ink);font-size:11px;font-weight:500}
+.bt.pri{background:var(--ink);color:#fff}
+.bt.sec{border-color:var(--line);color:var(--mid);margin-left:4px}
+.gfoot{display:flex;align-items:center;height:26px;margin-top:auto;padding:0 9px;border-top:1px solid var(--line);font-size:11px;color:var(--mid)}
+.gfoot b{font:500 12px var(--mono);color:var(--ink)}
+.gfoot .p{margin-left:auto;font-family:var(--mono)}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="rail">
+    <div class="brand"><strong>四川物流工单系统</strong><em>工单 · 需求 · 会议纪要 · 提醒</em></div>
+    <nav class="nav">
+      <a href="#"><i>01</i>首页</a>
+      <a href="#" class="on"><i>02</i>工单管理</a>
+      <a href="#"><i>03</i>需求管理</a>
+      <a href="#"><i>04</i>会议纪要</a>
+      <a href="#"><i>05</i>工作提醒</a>
+    </nav>
+    <p class="sec">状态形态</p>
+    <div class="lg"><span class="blk"></span><span class="nm">新建</span><b>3</b></div>
+    <div class="lg z"><span class="blk solid"></span><span class="nm">已处理</span><b>0</b></div>
+    <div class="lg z"><span class="blk slash"></span><span class="nm">已关闭</span><b>0</b></div>
+    <div class="lg z"><span class="blk thick"></span><span class="nm">处理中</span><b>0</b></div>
+    <div class="lg z"><span class="blk bar"></span><span class="nm">待优化</span><b>0</b></div>
+    <p class="sec">转需求</p>
+    <div class="lg"><span class="blk solid"></span><span class="nm">已转需求</span><b>1</b></div>
+    <div class="lg"><span class="blk"></span><span class="nm">未转需求</span><b>2</b></div>
+    <div class="lg"><span class="blk"></span><span class="nm">已登记需求ID</span><b>2</b></div>
+    <p class="sec">按系统</p>
+    <div class="lg"><span class="nm">WMS</span><b>1</b></div>
+    <div class="lg z"><span class="nm">ERP</span><b>0</b></div>
+    <div class="lg"><span class="nm">TMS</span><b>1</b></div>
+    <div class="lg z"><span class="nm">SCM</span><b>0</b></div>
+    <div class="lg z"><span class="nm">追溯中心</span><b>0</b></div>
+    <div class="lg z"><span class="nm">其他</span><b>0</b></div>
+    <p class="sec">按提交人</p>
+    <div class="lg z"><span class="nm">黄傲</span><b>0</b></div>
+    <div class="lg z"><span class="nm">陈婷婷</span><b>0</b></div>
+    <div class="lg"><span class="nm">未登记</span><b>3</b></div>
+  </aside>
+  <main class="main">
+    <div class="phead">
+      <h1>工单管理</h1>
+      <span class="meta">数据日期 <b>2026-09-01</b> → <b>2026-09-05</b></span>
+      <span class="sort">排序 <b>登记时间 ↓</b></span>
+    </div>
+    <div class="stats">
+      <div class="st"><em>工单总数</em><b>3</b></div>
+      <div class="st"><em>已转需求</em><b>1<i>/ 3</i></b></div>
+      <div class="st"><em>未转需求</em><b>2</b></div>
+      <div class="st"><em>已登记需求ID</em><b>2</b></div>
+      <div class="st"><em>未登记提交人</em><b>3</b></div>
+    </div>
+    <div class="tools">
+      <span class="f"><b>系统</b>全部<i>▾</i></span>
+      <span class="f"><b>状态</b>全部<i>▾</i></span>
+      <span class="f"><b>提交人</b>全部<i>▾</i></span>
+      <span class="vr"></span><span class="sp"></span>
+      <button class="btn pri">新增工单</button>
+      <button class="btn">刷新</button>
+    </div>
+    <div class="grid">
+      <table>
+        <colgroup><col style="width:90px"><col style="width:170px"><col style="width:58px"><col style="width:82px"><col style="width:54px"><col style="width:84px"><col style="width:92px"><col style="width:308px"><col style="width:204px"><col style="width:92px"></colgroup>
+        <thead><tr><th>日期</th><th>工单标题</th><th>系统</th><th>状态</th><th>提交人</th><th>是否转需求</th><th>需求ID</th><th>需求内容</th><th>备注</th><th>操作</th></tr></thead>
+        <tbody>
+          <tr class="dim">
+            <td class="mono">2026-09-01</td><td class="ttl">WMS 出库单打印优化</td><td class="mono">WMS</td><td><span class="blk"></span>新建</td><td class="mono">—</td>
+            <td><span class="blk solid"></span>已转需求</td><td class="mono">R-2026-001</td>
+            <td>出库单打印模板支持自定义纸张大小，增加批次号展示。</td><td>业务提出，已确认转为需求跟进。</td><td><span class="lk">编辑</span></td>
+          </tr>
+          <tr class="edit">
+            <td class="mono">2026-09-03</td><td class="ttl">OMS 订单同步异常排查</td><td class="mono">OMS</td><td><span class="blk"></span>新建</td><td class="mono">—</td>
+            <td><span class="blk"></span>未转需求</td><td class="mono">—</td><td>—</td><td>—</td>
+            <td><span class="bt pri">提交</span><span class="bt sec">取消</span></td>
+          </tr>
+          <tr class="strip">
+            <td colspan="10">
+              <div class="efs">
+                <div class="ef"><b>状态</b><span class="sel">新建<i>▾</i></span></div>
+                <div class="ef"><b>是否转需求</b><span class="sel">否<i>▾</i></span></div>
+                <div class="ef"><b>需求ID</b><span class="inp ph" style="width:96px">未填写</span></div>
+                <div class="ef grow"><b>需求内容</b><span class="inp ph">填写转出需求的正文内容</span></div>
+                <div class="ef grow"><b>备注</b><span class="inp ph">填写备注</span></div>
+                <div class="ef end">改动需「提交」后才落库</div>
+              </div>
+            </td>
+          </tr>
+          <tr class="dim">
+            <td class="mono">2026-09-05</td><td class="ttl">TMS 在途节点提醒功能咨询</td><td class="mono">TMS</td><td><span class="blk"></span>新建</td><td class="mono">—</td>
+            <td><span class="blk"></span>未转需求</td><td class="mono anom">R-2026-005</td><td>—</td><td>待确认，暂不处理。</td><td><span class="lk">编辑</span></td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="gfoot"><span>共 <b>3</b> 条 · 已全部加载</span><span class="p">第 1 / 1 页</span></div>
+    </div>
+  </main>
+</div>
+</body>
+</html>

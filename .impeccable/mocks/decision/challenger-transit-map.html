@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>需求管理 · 四川物流工单系统</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+SC:wght@400;500&display=swap">
+<style>
+/* 午夜地铁图：珐琅底 #101F3C / 瓷白 #F2F1EC / 四色线 WMS 琥珀 ERP 绿 —— 全部落在表格单元格里 */
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:1440px;height:900px;overflow:hidden}
+body{display:flex;background:#101F3C;color:#F2F1EC;
+  font:400 12.5px/1.45 "Noto Sans SC","Microsoft YaHei",sans-serif;-webkit-font-smoothing:antialiased}
+.mono{font-family:"IBM Plex Mono","Noto Sans SC",monospace;font-feature-settings:"tnum"}
+
+/* ---------- 左导航（普通列表，不是线路图） ---------- */
+nav{flex:0 0 232px;height:900px;padding-top:24px;border-right:1px solid rgba(242,241,236,.15)}
+nav .brand{padding:0 24px 22px;font-size:13.5px;font-weight:500;letter-spacing:.03em}
+nav a{display:block;height:38px;line-height:38px;padding:0 24px;font-size:13px;color:#B9BDC7}
+nav a.on{background:#F2F1EC;color:#101F3C;font-weight:500;                 /* 当前站 = 反白珐琅牌，45° 切角 */
+  clip-path:polygon(0 0,calc(100% - 13px) 0,100% 13px,100% 100%,0 100%)}
+
+/* ---------- 顶部：标题 / 统计 / 工具栏 ---------- */
+main{flex:1;min-width:0;display:flex;flex-direction:column}
+header{padding:18px 26px 13px;border-bottom:1px solid rgba(242,241,236,.15)}
+.hrow{display:flex;align-items:baseline;justify-content:space-between}
+h1{font-size:19px;font-weight:500;letter-spacing:.05em}
+.stats{display:flex;font-size:12px;color:rgba(242,241,236,.72)}
+.stats span{padding:0 14px;border-right:1px solid rgba(242,241,236,.18)}
+.stats span:last-child{border-right:0;padding-right:0}
+.stats b{font-family:"IBM Plex Mono",monospace;font-size:13px;font-weight:500;color:#F2F1EC;margin:0 4px}
+.tools{display:flex;align-items:center;gap:8px;margin-top:14px}
+.sp{flex:1}
+.btn{height:30px;padding:0 14px;border:0;background:#F2F1EC;color:#101F3C;
+  font:500 12px "Noto Sans SC",sans-serif;letter-spacing:.04em;
+  clip-path:polygon(0 0,calc(100% - 9px) 0,100% 9px,100% 100%,0 100%)}
+.btn.gh{background:none;border:1px solid rgba(242,241,236,.34);color:#F2F1EC;clip-path:none}
+.chip{display:inline-flex;align-items:center;gap:10px;height:30px;padding:0 11px;
+  border:1px solid rgba(242,241,236,.28);font-size:12px;color:rgba(242,241,236,.82)}
+.caret{width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;
+  border-top:5px solid rgba(242,241,236,.6)}
+
+/* ---------- 表格 ---------- */
+.wrap{flex:1;min-height:0;display:flex;flex-direction:column;padding:0 26px;overflow:hidden}
+table{width:1156px;table-layout:fixed;border-collapse:separate;border-spacing:0}
+th{height:32px;padding:0 10px;text-align:left;font-size:12px;font-weight:500;letter-spacing:.12em;
+  color:rgba(242,241,236,.72);border-bottom:1px solid rgba(242,241,236,.3);
+  border-right:1px solid rgba(242,241,236,.06);vertical-align:middle}
+td{height:35px;padding:3px 10px;vertical-align:middle;color:#B9BDC7;font-size:12px;
+  border-bottom:1px solid rgba(242,241,236,.07);border-right:1px solid rgba(242,241,236,.06)}
+tbody tr.row:nth-of-type(3) td{border-bottom-color:rgba(242,241,236,.18)}
+/* 行内编辑中：整行反白珐琅底，其余行整体降一档 */
+.edit td{height:37px;background:#F2F1EC;color:#101F3C;border-top:1px solid #101F3C;border-bottom:1px solid #101F3C;border-right-color:rgba(16,31,60,.14)}
+.t{font-size:12px;line-height:15px;font-weight:500;color:#F2F1EC}
+.x{font-size:12px;line-height:14px;color:#A8AEBE;margin-top:1px}
+.edit .t{color:#101F3C}
+.inp{font-size:11px;line-height:14px;color:#101F3C;border-bottom:1px solid #101F3C;padding-bottom:1px}
+.bar{display:inline-block;width:1px;height:11px;background:#101F3C;vertical-align:-1px;animation:bk 1.1s steps(1,end) infinite}
+@keyframes bk{0%,49%{opacity:1}50%,100%{opacity:0}}
+.dash{color:#A8AEBE}
+.dt{font-size:12px}
+.rel{font-size:11px;line-height:13px;color:#A8AEBE;margin-top:1px}
+/* 反白行上的次要文字改用同底深色（灰蓝在瓷白上只有 2:1，不可读） */
+.edit .dash,.edit .x,.edit .m,.edit .rel,.edit .lnk{color:#444E62}
+/* 需求ID 牌：45° 切角 */
+.id{display:inline-block;padding:1px 8px 2px;font-size:12px;font-weight:500;letter-spacing:.02em;
+  background:rgba(242,241,236,.15);color:#F2F1EC;
+  clip-path:polygon(0 0,calc(100% - 7px) 0,100% 7px,100% 100%,0 100%)}
+.edit .id{background:#101F3C}
+/* 形态标记：加急=三角，已发版=方块（黑白下仍可分辨） */
+.mark{display:inline-flex;align-items:center;gap:5px;margin-left:9px;font-size:11px;letter-spacing:.04em}
+.mark::before{content:"";width:0;height:0}
+.mark.urgent::before{border-left:4.5px solid transparent;border-right:4.5px solid transparent;border-bottom:7.5px solid #D7263D}
+.mark.rel::before{width:7px;height:7px;background:#2E8B57}
+/* 系统标签：色条与线路同色 */
+.sys{display:inline-flex;align-items:center;gap:7px;height:19px;padding:0 8px 0 6px;
+  border:1px solid rgba(242,241,236,.22);color:#F2F1EC;
+  font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:500;letter-spacing:.04em}
+.sys::before{content:"";width:3px;height:11px;background:var(--s);opacity:.72}
+.edit .sys{background:#101F3C;border-color:#101F3C}
+.edit .sys::before{opacity:1}
+/* 来源工单：方块=一对一关联 */
+.t2{font-size:12px;color:#F2F1EC}
+.t2::before{content:"";display:inline-block;width:5px;height:5px;background:#E8A33D;margin-right:6px;vertical-align:1px}
+.m{font-size:11px;line-height:13px;color:#A8AEBE;margin-top:1px}
+/* ---------- 标志性动作：节点推进线（折角只走 90°/45°，全在一个单元格内） ---------- */
+.rail{position:relative;display:flex;align-items:flex-start;height:26px;padding-top:2px}
+.rail i{flex:0 0 8px;width:8px;height:8px;margin-top:2px;border:1.5px solid rgba(242,241,236,.45);border-radius:50%}
+.rail i.on{background:#F2F1EC;border-color:#F2F1EC}                      /* 已达：实心圈 */
+.rail i.cur{position:relative;flex:0 0 12px;width:12px;height:12px;margin-top:0;border:2px solid #F2F1EC} /* 当前：换乘双圈 */
+.rail i.cur::after{content:"";position:absolute;inset:2px;border-radius:50%;background:#F2F1EC}
+.rail u{flex:1;height:2px;margin-top:5px;background:var(--c);opacity:.24}  /* 未达：虚淡段 */
+.rail u.on{opacity:1}
+/* 非编辑行：只压线路与圈层，不压站名文字（文字对比度必须留够） */
+.row:not(.edit) .rail i{opacity:.8}
+.row:not(.edit) .rail u:not(.on){opacity:.18}
+.edit .rail u:not(.on){opacity:.32}
+/* 反白行上站点改用同底深色，否则瓷白圈在白底上消失 */
+.edit .rail i{border-color:rgba(16,31,60,.42)}
+.edit .rail i.on{background:#101F3C;border-color:#101F3C}
+.edit .rail i.cur{border-color:#101F3C;background:transparent}
+.edit .rail i.cur::after{background:#101F3C}
+.rail em{position:absolute;top:13px;font-style:normal;font-size:11px;line-height:13px;letter-spacing:.02em;
+  color:rgba(242,241,236,.78);white-space:nowrap;transform:translateX(-50%)}
+.rail em.st{transform:none}
+.edit .rail em{background:#101F3C;color:#F2F1EC;padding:1px 6px 2px;font-weight:500;
+  clip-path:polygon(0 0,calc(100% - 6px) 0,100% 6px,100% 100%,0 100%)}
+/* 操作列 */
+.ops{font-size:12px}
+.lnk{color:#A8AEBE;margin-right:11px}
+.lnk:last-child{margin-right:0}
+.mini{display:inline-block;height:20px;line-height:20px;padding:0 9px;background:#101F3C;color:#F2F1EC;
+  font-size:11px;font-weight:500;margin-right:9px;
+  clip-path:polygon(0 0,calc(100% - 6px) 0,100% 6px,100% 100%,0 100%)}
+/* 数据已尽（seed 只有 3 条需求）：余下是素面珐琅底。
+   不铺装饰性假格线 —— 那会暗示存在并不存在的行。 */
+.void{flex:1;min-height:0}
+.foot{flex:0 0 32px;display:flex;align-items:center;justify-content:flex-end;padding:0 26px;
+  border-top:1px solid rgba(242,241,236,.15);font-family:"IBM Plex Mono",monospace;font-size:12px;
+  color:rgba(242,241,236,.72)}
+</style>
+</head>
+<body>
+<nav>
+  <div class="brand">四川物流工单系统</div>
+  <a>首页</a><a>工单管理</a><a class="on">需求管理</a><a>会议纪要</a><a>工作提醒</a>
+</nav>
+<main>
+  <header>
+    <div class="hrow">
+      <h1>需求管理</h1>
+      <div class="stats">
+        <span>需求<b>3</b>条</span><span>来自工单<b>1</b>条</span><span>已发版<b>1</b>条</span><span>加急<b>1</b>条</span>
+      </div>
+    </div>
+    <div class="tools">
+      <button class="btn">新建需求</button>
+      <button class="btn gh">提交（1）</button>
+      <span class="sp"></span>
+      <span class="chip">系统<span class="caret"></span></span>
+      <span class="chip">节点<span class="caret"></span></span>
+      <button class="btn gh">刷新</button>
+    </div>
+  </header>
+  <div class="wrap">
+    <table>
+      <colgroup><col style="width:112px"><col style="width:290px"><col style="width:186px"><col style="width:76px"><col style="width:250px"><col style="width:68px"><col style="width:92px"><col style="width:82px"></colgroup>
+      <thead><tr><th>需求ID</th><th>需求内容</th><th>来源工单</th><th>系统</th><th>当前节点</th><th>提交人</th><th>日期</th><th>操作</th></tr></thead>
+      <tbody>
+        <tr class="row edit">
+          <td><span class="id mono">R-2026-003</span></td>
+          <td><div class="t">WMS 盘点差异分析看板</div><div class="inp">针对盘点差异数据提供可视化分析看板。<span class="bar"></span></div></td>
+          <td class="dash mono">—</td>
+          <td><span class="sys" style="--s:#E8A33D">WMS</span></td>
+          <td><div class="rail" style="--c:#E8A33D"><i class="cur"></i><u></u><i></i><u></u><i></i><u></u><i></i><u></u><i></i><u></u><i></i><em class="st">方案中</em></div></td>
+          <td class="dash mono">—</td>
+          <td class="dt mono">2026-09-08</td>
+          <td class="ops"><span class="mini">提交</span><span class="lnk">取消</span></td>
+        </tr>
+        <tr class="row">
+          <td><span class="id mono">R-2026-002</span></td>
+          <td><div class="t">ERP 库存月报导出增强<span class="mark rel">已发版</span></div><div class="x">库存月报支持按仓库维度多选导出 Excel。</div></td>
+          <td class="dash mono">—</td>
+          <td><span class="sys" style="--s:#2E8B57">ERP</span></td>
+          <td><div class="rail" style="--c:#2E8B57"><i class="on"></i><u class="on"></u><i class="on"></i><u class="on"></u><i class="on"></i><u class="on"></u><i class="on"></i><u class="on"></u><i class="cur"></i><u></u><i></i><em style="left:78%">已合并</em></div></td>
+          <td class="dash mono">—</td>
+          <td class="dt"><div class="mono">2026-08-20</div><div class="rel mono">发版 2026-08-28</div></td>
+          <td class="ops"><span class="lnk">编辑</span><span class="lnk">删除</span></td>
+        </tr>
+        <tr class="row">
+          <td><span class="id mono">R-2026-001</span></td>
+          <td><div class="t">WMS 出库单打印优化<span class="mark urgent">加急</span></div><div class="x">出库单打印模板支持自定义纸张大小，增加批次号展示。</div></td>
+          <td><div class="t2">WMS 出库单打印优化</div><div class="m mono">工单 2026-09-01</div></td>
+          <td><span class="sys" style="--s:#E8A33D">WMS</span></td>
+          <td><div class="rail" style="--c:#E8A33D"><i class="on"></i><u class="on"></u><i class="on"></i><u class="on"></u><i class="cur"></i><u></u><i></i><u></u><i></i><u></u><i></i><em style="left:41%">测试中</em></div></td>
+          <td class="dash mono">—</td>
+          <td class="dt mono">2026-09-01</td>
+          <td class="ops"><span class="lnk">编辑</span><span class="lnk">删除</span></td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="void"></div>
+  </div>
+  <div class="foot">共 3 条</div>
+</main>
+</body>
+</html>

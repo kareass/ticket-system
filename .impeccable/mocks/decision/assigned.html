@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>工单管理 · 四川物流工单系统</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+/* 堆场基线网格：全页共用 --u(34px) 行模块与 24px 栏宽。
+   左导航项 / 表格行 / 统计带 / 工具栏全部落在 --u 的整数倍上；
+   表格首列文字左缘 = 工具栏与统计标签左缘 = 264px。
+   调色板：深混凝土灰外壳 + 米白喷码 + 系统涂装色带 + 异常红，不用其它颜色。
+   系统涂装色 = WMS #1E5C8B / ERP #A63A2B / TMS #2E6B4F / SCM #C9A227 / 追溯中心 #6B4A7A / 其他 #6B7075 */
+:root{
+  --shell:#2E3436; --stencil:#E9E3D5; --ink:#2E3436; --alert:#D1453B;
+  --wms:#1E5C8B; --erp:#A63A2B; --tms:#2E6B4F; --scm:#C9A227; --trace:#6B4A7A; --other:#6B7075;
+  --u:34px; --line:rgba(233,227,213,.16); --hr:rgba(46,52,54,.14);
+  --cols:4px 92px 176px 78px 86px 72px 84px 98px 160px 110px 92px 100px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{width:1440px;height:900px;overflow:hidden;background:var(--shell);color:var(--stencil);font:400 13px/1.4 "Noto Sans SC","Microsoft YaHei",sans-serif}
+.mono{font-family:"IBM Plex Mono",Consolas,monospace;font-variant-numeric:tabular-nums}
+.num{font-family:"Barlow Condensed","Noto Sans SC",sans-serif;font-weight:600;font-size:24px;line-height:1}
+.app{display:flex;height:900px}
+/* ── 左导航 ───────────────────────────────────────── */
+nav{width:240px;flex:0 0 240px;border-right:1px solid var(--line);padding-top:20px}
+.brand{padding:0 24px;font-size:15px;font-weight:700;line-height:var(--u)}
+.sub{padding:0 24px;font-size:11px;line-height:16px;letter-spacing:.06em;color:rgba(233,227,213,.72)}
+nav ul{list-style:none;margin-top:18px}
+nav li{height:var(--u);display:flex;align-items:center;padding:0 24px;color:rgba(233,227,213,.6)}
+nav li.on{color:var(--stencil);font-weight:500;background:rgba(233,227,213,.06);box-shadow:inset 4px 0 0 var(--stencil)}
+/* ── 主区 ─────────────────────────────────────────── */
+main{flex:1;display:flex;flex-direction:column;min-width:0}
+.pad{padding-left:24px;padding-right:24px}
+.head{display:flex;align-items:baseline;justify-content:space-between;padding-top:20px}
+h1{font-size:22px;font-weight:700;line-height:var(--u)}
+.hint{font-size:11px;letter-spacing:.08em;color:rgba(233,227,213,.68)}
+.stats{height:68px;display:flex;align-items:center;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.tally{display:flex;align-items:baseline;gap:8px;margin-right:34px}
+.tally>*{vertical-align:baseline}
+.tally.zero{color:rgba(233,227,213,.62)}
+.total{margin-left:auto;font-size:11px;letter-spacing:.08em;color:rgba(233,227,213,.62)}
+.bar{height:68px;display:flex;align-items:center;gap:26px;border-bottom:1px solid var(--line)}
+.fld{display:flex;align-items:center;gap:8px}
+.flab{font-size:11px;letter-spacing:.14em;color:rgba(233,227,213,.62)}
+.sel{min-width:92px;height:26px;display:inline-flex;align-items:center;justify-content:space-between;gap:14px;padding:0 8px;background:transparent;border:1px solid rgba(233,227,213,.3);color:inherit;font:inherit;font-size:12.5px}
+.caret{width:0;height:0;border:4px solid transparent;border-top-color:rgba(233,227,213,.6);margin-top:3px}
+.acts{margin-left:auto;display:flex;gap:12px}
+.btn{height:26px;padding:0 14px;background:transparent;border:1px solid rgba(233,227,213,.35);color:var(--stencil);font:inherit;font-size:12.5px}
+.btn.fill{background:var(--stencil);border-color:var(--stencil);color:var(--shell);font-weight:500}
+/* ── 表格（米白喷码底） ──────────────────────────── */
+.sheet{flex:1;min-height:0;display:flex;flex-direction:column;background:var(--stencil);color:var(--ink)}
+.tr{display:grid;grid-template-columns:var(--cols);align-items:center;height:var(--u);border-bottom:1px solid var(--hr)}
+.tr>*{padding-left:12px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.35}
+.tr>*:nth-child(2){padding-left:20px}      /* 首列贴 264px 基线 */
+.band{align-self:stretch;padding:0;background:var(--sys,var(--other))}   /* 堆位带：系统涂装色 */
+.th{font:500 11px/1 "IBM Plex Mono",monospace;letter-spacing:.08em;color:rgba(46,52,54,.74);border-bottom:1px solid rgba(46,52,54,.5)}
+.th .band{background:var(--other);opacity:.55}   /* 表头堆位带留灰，标记未定区 */
+/* 当前编辑行独占视觉：本行满对比度，其余行整体降一档（不靠悬停） */
+.tr.dim>*{color:#63615D}          /* 降一档（10.6:1 → 4.7:1），仍过 AA */
+.tr.dim .band{opacity:.7}         /* 涂装色带降档后仍可辨（3.1:1） */
+.tr.edit{height:68px;background:rgba(46,52,54,.04);border-bottom:1px solid rgba(46,52,54,.45);box-shadow:inset 0 1px 0 rgba(46,52,54,.45)}
+.cdate{display:flex;flex-direction:column;justify-content:center;gap:3px}
+.tag{font:500 11px/1 "IBM Plex Mono",monospace;letter-spacing:.1em;font-style:normal}
+.mono.z{font-size:11.5px;letter-spacing:.06em}
+.rid.pending{color:rgba(46,52,54,.78);border-bottom:1px dashed rgba(46,52,54,.5)}  /* 未转需求：形态承载，非靠变浅 */
+.mut{color:#63615D}
+.inp{width:100%;height:26px;padding:0 6px;border:1px solid rgba(46,52,54,.3);background:rgba(46,52,54,.03);color:var(--ink);font:inherit;font-size:12.5px}
+.sel.ink{border-color:rgba(46,52,54,.4);color:var(--ink)}
+.sel.ink .caret{border-top-color:rgba(46,52,54,.6)}
+.conv{display:inline-flex;align-items:center;gap:6px;font-size:12.5px}
+.sq{width:9px;height:9px;border:1px solid currentColor;display:block}
+.sq.on{background:currentColor}
+/* 状态由形态承载：实线 / 双线 / 虚线 / 半高 / 划除 —— 颜色只是第二重编码 */
+.st{font-size:12.5px;padding-bottom:1px}
+.s-new{border-bottom:2px solid currentColor}
+.s-done{border-bottom:3px double currentColor}
+.s-doing{border-bottom:1px dashed currentColor}
+.s-pending{display:inline-block;transform:scaleY(.55);transform-origin:bottom left}
+.s-closed{text-decoration:line-through}
+.op{display:flex;align-items:center;gap:10px;font-size:12px}
+.link{color:inherit;text-decoration:none;border-bottom:1px solid rgba(46,52,54,.35)}
+.btn.sm{height:24px;padding:0 10px;background:var(--ink);border-color:var(--ink);color:var(--stencil);font-size:12px;font-weight:500}
+/* 数据已尽：空白堆场（素面，仅堆位带继续延伸），不放装饰纹理 */
+.slots{flex:1;position:relative}
+.slots::before{content:"";position:absolute;inset:0 auto 0 0;width:4px;background:var(--other);opacity:.32}
+footer{height:64px;padding:0 24px;border-top:1px solid var(--line);display:flex;flex-direction:column;justify-content:center}
+.fl{font-size:11px;line-height:15px;letter-spacing:.02em;color:rgba(233,227,213,.72)}
+.fl b{font-weight:500;color:rgba(233,227,213,.88)}
+</style>
+</head>
+<body>
+<div class="app">
+  <nav>
+    <div class="brand">四川物流工单系统</div>
+    <div class="sub">工单 / 需求 / 会议 / 提醒</div>
+    <ul>
+      <li>首页</li>
+      <li class="on">工单管理</li>
+      <li>需求管理</li>
+      <li>会议纪要</li>
+      <li>工作提醒</li>
+    </ul>
+  </nav>
+
+  <main>
+    <div class="head pad">
+      <h1>工单管理</h1>
+      <div class="hint">工单转需求 · 一对一同步</div>
+    </div>
+
+    <div class="stats pad">
+      <div class="tally"><span class="num">3</span><span class="lab st s-new">新建</span></div>
+      <div class="tally zero"><span class="num">0</span><span class="lab st s-done">已处理</span></div>
+      <div class="tally zero"><span class="num">0</span><span class="lab st s-doing">处理中</span></div>
+      <div class="tally zero"><span class="num">0</span><span class="lab st s-pending">待优化</span></div>
+      <div class="tally zero"><span class="num">0</span><span class="lab st s-closed">已关闭</span></div>
+      <div class="total mono">工单 3 条 · 已转需求 1 条</div>
+    </div>
+
+    <div class="bar pad">
+      <div class="fld"><span class="flab">系统</span><button class="sel">全部<i class="caret"></i></button></div>
+      <div class="fld"><span class="flab">状态</span><button class="sel">全部<i class="caret"></i></button></div>
+      <div class="fld"><span class="flab">提交人</span><button class="sel">全部<i class="caret"></i></button></div>
+      <div class="acts">
+        <button class="btn">刷新</button>
+        <button class="btn fill">新增工单</button>
+      </div>
+    </div>
+
+    <section class="sheet">
+      <div class="tr th">
+        <i class="band"></i>
+        <span>日期</span><span>工单标题</span><span>系统</span><span>状态</span><span>提交人</span>
+        <span>是否转需求</span><span>需求ID</span><span>需求内容</span><span>备注</span><span>节点区位码</span><span>操作</span>
+      </div>
+
+      <!-- 行内编辑中：本行满对比度，落库须显式「提交」 -->
+      <div class="tr edit" style="--sys:#1E5C8B">
+        <i class="band"></i>
+        <span class="cdate"><em class="tag">编辑中</em><span class="mono">2026-09-01</span></span>
+        <span><input class="inp" value="WMS 出库单打印优化" /></span>
+        <span><button class="sel ink">WMS<i class="caret"></i></button></span>
+        <span><button class="sel ink">新建<i class="caret"></i></button></span>
+        <span class="mut">—</span>
+        <span class="conv"><i class="sq on"></i>是</span>
+        <span class="mono">R-2026-001</span>
+        <span><input class="inp" value="出库单打印模板支持自定义纸张大小，增加批次号展示。" /></span>
+        <span><input class="inp" value="业务提出，已确认转为需求跟进。" /></span>
+        <span class="mono z">B-03-2</span>
+        <span class="op"><button class="btn sm">提交</button><a class="link">取消</a></span>
+      </div>
+
+      <div class="tr dim" style="--sys:#6B7075">
+        <i class="band"></i>
+        <span class="mono">2026-09-03</span>
+        <span>OMS 订单同步异常排查</span>
+        <span>OMS</span>
+        <span class="st s-new">新建</span>
+        <span class="mut">—</span>
+        <span class="conv"><i class="sq"></i>否</span>
+        <span class="mut">—</span>
+        <span class="mut">—</span>
+        <span class="mut">—</span>
+        <span class="mono z mut">—</span>
+        <span class="op"><a class="link">编辑</a><a class="link">转需求</a><a class="link">删除</a></span>
+      </div>
+
+      <div class="tr dim" style="--sys:#2E6B4F">
+        <i class="band"></i>
+        <span class="mono">2026-09-05</span>
+        <span>TMS 在途节点提醒功能咨询</span>
+        <span>TMS</span>
+        <span class="st s-new">新建</span>
+        <span class="mut">—</span>
+        <span class="conv"><i class="sq"></i>否</span>
+        <span class="mono rid pending">R-2026-005</span>
+        <span class="mut">—</span>
+        <span>待确认，暂不处理。</span>
+        <span class="mono z mut">—</span>
+        <span class="op"><a class="link">编辑</a><a class="link">转需求</a><a class="link">删除</a></span>
+      </div>
+
+      <div class="slots"></div>
+    </section>
+
+    <footer>
+      <div class="fl mono">工单 <b>3</b> 条 · 已转需求 <b>1</b> 条 · 未转需求 <b>2</b> 条　｜　当前筛选：全部</div>
+      <div class="fl">状态形态：实线 新建 / 双线 已处理 / 虚线 处理中 / 半高 待优化 / 划除 已关闭　｜　虚线编号 = 已填写未转需求</div>
+      <div class="fl mono">节点区位码：方案中 A-01 · 开发中 A-02 · 测试中 B-03 · 测试完毕 B-04 · 已合并 C-05 · 已发布 C-06 · 退回 D-07</div>
+      <div class="fl mono">筛选取值：系统 WMS / ERP / TMS / SCM / 追溯中心 / 其他　｜　状态 新建 / 已处理 / 已关闭 / 处理中 / 待优化　｜　提交人 黄傲 / 陈婷婷</div>
+    </footer>
+  </main>
+</div>
+</body>
+</html>

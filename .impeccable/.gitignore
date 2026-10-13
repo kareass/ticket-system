@@ -1,0 +1,8 @@
+# 只把「有记录价值」的入库：方向说明（PRODUCT.md）、决策答卷、
+# 12 张候选方向草图、已批准的偏离项（config.json）。
+# 下面是运行时状态 —— 每次调用都会变，入库只会制造无意义的 diff。
+hook.cache.json
+decision-payload*.json
+questions/*.log
+questions/*.state.json
+questions/*.hand.json
