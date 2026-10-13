@@ -4,21 +4,21 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Button,
-  Card,
   Input,
   Modal,
   Popconfirm,
   Select,
   Space,
-  Tag,
   Tooltip,
   message,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { PlusOutlined, ReloadOutlined, SearchOutlined } from "@ant-design/icons";
 import ProTable from "@/components/common/ProTable";
+import Surface from "@/components/common/Surface";
 import EditableChip from "@/components/common/EditableChip";
 import SortableHeader from "@/components/common/SortableHeader";
+import { MOSS } from "@/lib/theme";
 import { useRowDrafts } from "@/lib/useRowDrafts";
 import { createComparator, type SortState } from "@/lib/sortRows";
 import { SYSTEM_OPTIONS, SUBMITTER_OPTIONS, SYSTEM_COLORS, WORK_ORDER_STATUS_COLORS, WORK_ORDER_STATUS_OPTIONS, asSelectOptions } from "@/types";
@@ -28,6 +28,10 @@ import { formatDate, workOrderNo } from "@/lib/utils";
 import { toErrorMessage } from "@/lib/errors";
 
 // 系统 / 工单状态配色：唯一来源 src/types（新增选项时只改那一处）
+
+/** 空值占位：中文数据表惯例用全角破折号「—」，不用半角减号；
+ *  颜色退到装饰灰，让「有值」的格子自然比空格子响。 */
+const EMPTY = <span style={{ color: MOSS.ornament }}>—</span>;
 
 /**
  * 工单列表页（环节5：数据源为真实后端 API）
@@ -83,6 +87,15 @@ export default function WorkOrderListPage() {
       return hitTitle && hitSystem && hitSubmitter;
     });
   }, [workOrders, keyword, system, submitter]);
+
+  // 台头计数：统计**全部**工单，不随筛选/搜索变化 ——
+  // 「还有几条没转需求」是翻页后仍要看到的量，跟着筛选变就没有参照意义了。
+  const stats = useMemo(() => {
+    const total = workOrders.length;
+    const fresh = workOrders.filter((wo) => wo.status === "新建").length;
+    const converted = workOrders.filter((wo) => wo.isConvertToRequirement).length;
+    return { total, fresh, converted, pending: total - converted };
+  }, [workOrders]);
 
   // 双击列头：升序 → 降序 → 取消（回到默认的创建时间倒序）
   const handleSortToggle = (field: keyof WorkOrder) => {
@@ -181,13 +194,14 @@ export default function WorkOrderListPage() {
       title: "工单ID",
       dataIndex: "id",
       width: 120,
-      render: (id: string) => workOrderNo(id),
+      render: (id: string) => <span className="mono">{workOrderNo(id)}</span>,
     },
     {
       title: sortableTitle("日期", "date"),
       dataIndex: "date",
       width: 110,
-      render: (_, record) => formatDate(record.date),
+      // 日期用等宽：三行数字上下对齐，扫读「哪天」不用逐字看
+      render: (_, record) => <span className="mono">{formatDate(record.date)}</span>,
     },
     {
       title: "标题",
@@ -200,7 +214,7 @@ export default function WorkOrderListPage() {
       dataIndex: "content",
       width: 240,
       ellipsis: true,
-      render: (content?: string) => content || "-",
+      render: (content?: string) => content || EMPTY,
     },
     {
       title: sortableTitle("系统", "system"),
@@ -233,30 +247,41 @@ export default function WorkOrderListPage() {
       ),
     },
     {
-      // 是否转需求：由「填写需求ID / 转需求」驱动，故列表内只读展示，避免误切导致状态脱节
+      // 是否转需求：由「填写需求ID / 转需求」驱动，故列表内只读展示，避免误切导致状态脱节。
+      // 用「实心方块 = 是」而不是彩色标签：本方向颜色稀缺，且这一列的「是」
+      // 在视觉上不该比工单标题更响；方块与相邻列的圆点、三角形状不同，不会混读。
       title: "是否转需求",
       dataIndex: "isConvertToRequirement",
       width: 110,
       align: "center" as const,
       render: (isConvert: boolean) =>
-        isConvert ? <Tag color="blue">是</Tag> : <Tag>否</Tag>,
+        isConvert ? (
+          <span className="wo-converted">
+            <i aria-hidden />
+            是
+          </span>
+        ) : (
+          <span style={{ color: MOSS.ink2 }}>否</span>
+        ),
     },
     {
-      // 关联需求：反查需求表命中显示需求编号；仅填了需求ID尚未转需求时以灰标提示
+      // 关联需求：反查需求表命中显示需求编号；仅填了需求ID尚未转需求时以虚线标注提示。
+      // 需求编号是**编号**，用等宽字；两种情况的分辨靠「有没有下划线」而不是靠色。
       title: "关联需求",
       key: "linkRequirement",
       width: 150,
       render: (_, record) => {
         const found = requirements.find((r) => r.workOrderId === record.id);
-        if (found) return <Tag color="geekblue">{found.requirementId}</Tag>;
+        if (found)
+          return <span className="mono">{found.requirementId}</span>;
         if (record.requirementId) {
           return (
             <Tooltip title="工单上登记了需求ID，但对应需求已不存在（如曾被删除），可点「转需求」按此编号重建">
-              <Tag color="default">{record.requirementId}</Tag>
+              <span className="mono wo-orphan-id">{record.requirementId}</span>
             </Tooltip>
           );
         }
-        return "-";
+        return <span style={{ color: MOSS.ornament }}>—</span>;
       },
     },
     {
@@ -280,7 +305,7 @@ export default function WorkOrderListPage() {
       dataIndex: "remark",
       width: 180,
       ellipsis: true,
-      render: (remark?: string) => remark || "-",
+      render: (remark?: string) => remark || EMPTY,
     },
     {
       // ② ③ 操作列固定在最右侧（含转需求入口）
@@ -336,17 +361,33 @@ export default function WorkOrderListPage() {
   ];
 
   return (
-    <Card title="工单列表">
-      {/* 顶部工具栏：新建入口居左，搜索与系统筛选居右，窄屏自动换行 */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          flexWrap: "wrap",
-          gap: 12,
-          marginBottom: 16,
-        }}
-      >
+    <>
+    <Surface style={{ marginBottom: 20 }}>
+      {/* 台头：页面名在左，「还剩几条没转需求」在右 —— 这是这个系统存在的理由 */}
+      <div className="page-head">
+        <h1>工单管理</h1>
+        <div className="page-stats">
+          <div className="page-stat">
+            <b>{stats.total}</b>
+            <span>工单总数</span>
+          </div>
+          <div className="page-stat">
+            <b>{stats.fresh}</b>
+            <span>新建</span>
+          </div>
+          <div className="page-stat">
+            <b>{stats.converted}</b>
+            <span>已转需求</span>
+          </div>
+          <div className="page-stat">
+            <b>{stats.pending}</b>
+            <span>未转需求</span>
+          </div>
+        </div>
+      </div>
+
+      {/* 工具行：动作在左（先决定做什么），筛选与搜索在右（再决定看哪几条） */}
+      <div className="page-tools">
         {/* 新建工单 + 提交/还原（草稿计数） */}
         <Space>
           <Link href="/work-orders/create">
@@ -365,7 +406,43 @@ export default function WorkOrderListPage() {
             <Button onClick={() => drafts.discard()}>还原</Button>
           ) : null}
         </Space>
-        <Space wrap>
+        <div className="page-filters">
+          <div className="field">
+            <label htmlFor="wo-kw">搜索</label>
+            <Input
+              id="wo-kw"
+              allowClear
+              placeholder="标题关键字"
+              prefix={<SearchOutlined />}
+              style={{ width: 200 }}
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="wo-sys">系统</label>
+            <Select<string>
+              id="wo-sys"
+              allowClear
+              placeholder="全部"
+              style={{ width: 130 }}
+              options={systemFilterOptions}
+              value={system}
+              onChange={(value) => setSystem(value)}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="wo-sub">提交人</label>
+            <Select<string>
+              id="wo-sub"
+              allowClear
+              placeholder="全部"
+              style={{ width: 120 }}
+              options={submitterOptions}
+              value={submitter}
+              onChange={(value) => setSubmitter(value)}
+            />
+          </div>
           <Button
             icon={<ReloadOutlined />}
             loading={loading}
@@ -378,33 +455,12 @@ export default function WorkOrderListPage() {
           >
             刷新
           </Button>
-          <Input
-            allowClear
-            placeholder="按标题搜索"
-            prefix={<SearchOutlined />}
-            style={{ width: 220 }}
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-          />
-          <Select<string>
-            allowClear
-            placeholder="按系统筛选"
-            style={{ width: 160 }}
-            options={systemFilterOptions}
-            value={system}
-            onChange={(value) => setSystem(value)}
-          />
-          <Select<string>
-            allowClear
-            placeholder="按提交人筛选"
-            style={{ width: 140 }}
-            options={submitterOptions}
-            value={submitter}
-            onChange={(value) => setSubmitter(value)}
-          />
-        </Space>
+        </div>
       </div>
+    </Surface>
 
+    {/* 表格板：不设内边距，让密表贴到圆角上（圆角处由 Surface 的 overflow 裁切） */}
+    <Surface padding={0}>
       <ProTable<WorkOrder>
         rowKey="id"
         columns={columns}
@@ -416,6 +472,7 @@ export default function WorkOrderListPage() {
           showTotal: (total) => `共 ${total} 条`,
         }}
       />
+    </Surface>
 
       {/* 转需求弹框：需求ID 的填写位置（必填，空编号时确认按钮禁用） */}
       <Modal
@@ -431,14 +488,14 @@ export default function WorkOrderListPage() {
       >
         {convertTarget ? (
           <>
-            <div style={{ marginBottom: 12, color: "#595959" }}>
+            <div style={{ marginBottom: 12, color: MOSS.ink2 }}>
               将工单
               <span style={{ fontWeight: 600 }}>「{convertTarget.title}」</span>
               转为需求：日期 / 标题 / 内容 / 系统同步自该工单，节点默认「方案中」，
               工单随即标记为已转需求。
             </div>
             <div style={{ marginBottom: 6 }}>
-              <span style={{ color: "#ff4d4f", marginRight: 4 }}>*</span>
+              <span style={{ color: MOSS.danger, marginRight: 4 }}>*</span>
               需求ID
             </div>
             <Input
@@ -449,12 +506,12 @@ export default function WorkOrderListPage() {
               onChange={(e) => setConvertId(e.target.value)}
               onPressEnter={handleConvertOk}
             />
-            <div style={{ marginTop: 6, marginBottom: 12, color: "#8c8c8c", fontSize: 12 }}>
+            <div style={{ marginTop: 6, marginBottom: 12, color: MOSS.ink2, fontSize: 12 }}>
               业务编号，需全局唯一；编号已被占用会提示更换。
             </div>
 
             <div style={{ marginBottom: 6 }}>
-              <span style={{ color: "#ff4d4f", marginRight: 4 }}>*</span>
+              <span style={{ color: MOSS.danger, marginRight: 4 }}>*</span>
               需求提交人
             </div>
             <Select
@@ -465,7 +522,7 @@ export default function WorkOrderListPage() {
               onChange={setConvertSubmitter}
               allowClear
             />
-            <div style={{ marginTop: 6, marginBottom: 12, color: "#8c8c8c", fontSize: 12 }}>
+            <div style={{ marginTop: 6, marginBottom: 12, color: MOSS.ink2, fontSize: 12 }}>
               默认与工单提交人相同，可在此修改。
             </div>
 
@@ -476,12 +533,12 @@ export default function WorkOrderListPage() {
               value={convertContent}
               onChange={(e) => setConvertContent(e.target.value)}
             />
-            <div style={{ marginTop: 6, color: "#8c8c8c", fontSize: 12 }}>
+            <div style={{ marginTop: 6, color: MOSS.ink2, fontSize: 12 }}>
               留空则转出的需求内容也为空（不会自动取工单标题）。
             </div>
           </>
         ) : null}
       </Modal>
-    </Card>
+    </>
   );
 }
