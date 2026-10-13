@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Card, Empty, message, Skeleton } from "antd";
+import { Button, Empty, message, Skeleton } from "antd";
 import { useAppStore } from "@/store/store";
 import { meetingApi } from "@/lib/api";
 import { toErrorMessage } from "@/lib/errors";
+import Surface from "@/components/common/Surface";
 import MeetingForm, { type MeetingFormValues } from "@/components/MeetingForm";
 
 /**
@@ -67,12 +68,31 @@ export default function EditMeetingPage({
     }
   };
 
-  if (loading) return <Skeleton active />;
+  // 加载态与「不存在」都与 FormShell 同一块板、同一个标题，只换板内内容
+  if (loading) {
+    return (
+      <Surface style={{ maxWidth: 960 }}>
+        <div className="page-head">
+          <h1>编辑会议纪要</h1>
+        </div>
+        <Skeleton className="form-skeleton" active paragraph={{ rows: 6 }} />
+      </Surface>
+    );
+  }
+
   if (!meeting) {
     return (
-      <Card>
-        <Empty description="会议纪要不存在，可能已被删除" />
-      </Card>
+      <Surface style={{ maxWidth: 960 }}>
+        <div className="page-head">
+          <h1>编辑会议纪要</h1>
+        </div>
+        <div className="form-notice">
+          <Empty description="未找到该会议纪要，可能已被删除或链接有误。" />
+          <Button type="primary" onClick={() => router.push("/meetings")}>
+            返回会议纪要列表
+          </Button>
+        </div>
+      </Surface>
     );
   }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Button, DatePicker, Form, Input, message, Space, Typography, Upload } from "antd";
+import { Button, DatePicker, Form, Input, message, Space, Upload } from "antd";
 import { UploadOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import PersonSelect, { PersonGroup, PersonName } from "@/components/common/PersonSelect";
@@ -10,15 +10,9 @@ import { meetingApi } from "@/lib/api";
 import { toErrorMessage } from "@/lib/errors";
 import type { Meeting } from "@/types";
 import AttachmentList from "@/components/common/AttachmentList";
+import FormShell from "@/components/common/FormShell";
 
 const { TextArea } = Input;
-const { Text } = Typography;
-
-const WIDTH = {
-  date: 160,
-  title: 360,
-  person: 360,
-};
 
 export interface MeetingFormValues {
   date: dayjs.Dayjs;
@@ -53,6 +47,12 @@ export default function MeetingForm({
   const addMeetingAttachment = useAppStore((s) => s.addMeetingAttachment);
 
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+
+  // 与工单/需求表单同一套口径：有初值即编辑态。会议表单没有 mode 参数
+  // （新建页不传 initial、编辑页传），因此由 initial 是否存在反推。
+  const isEdit = Boolean(initial);
+  const pageTitle = isEdit ? "编辑会议纪要" : "新建会议纪要";
+  const submitText = isEdit ? "保存修改" : "创建纪要";
 
   const formInitialValues = useMemo<Partial<MeetingFormValues>>(
     () => ({
@@ -144,34 +144,39 @@ export default function MeetingForm({
   }, [meetings]);
 
   return (
-    <Form
+    <FormShell<MeetingFormValues>
+      title={pageTitle}
       form={form}
-      layout="vertical"
       initialValues={formInitialValues}
-      onFinish={onSubmit as never}
+      onFinish={onSubmit}
+      submitText={submitText}
+      submitting={submitting}
+      onCancel={onCancel}
     >
+      {/* 第一行：日期 + 主题。主题占两格并限宽 —— 它是本表单唯一的长单行输入 */}
       <Form.Item
         name="date"
         label="日期"
         rules={[{ required: true, message: "请选择日期" }]}
       >
-        <DatePicker style={{ width: WIDTH.date }} placeholder="请选择日期" />
+        <DatePicker placeholder="请选择日期" />
       </Form.Item>
 
       <Form.Item
         name="title"
         label="主题"
+        className="span-2"
         rules={[{ required: true, message: "请填写会议主题" }]}
       >
-        <Input style={{ width: WIDTH.title }} placeholder="如：周例会" maxLength={120} />
+        <Input className="narrow" placeholder="如：周例会" maxLength={120} />
       </Form.Item>
 
-      <Form.Item name="attendees" label="参会人">
+      {/* 第二行：参会人占两格（多人标签要横向空间），记录人一格 */}
+      <Form.Item name="attendees" label="参会人" className="span-2">
         <PersonSelect
           multiple
           optionGroups={personOptionGroups}
           placeholder="输入人名后回车，或从下拉中选择"
-          style={{ width: WIDTH.person }}
         />
       </Form.Item>
 
@@ -179,15 +184,24 @@ export default function MeetingForm({
         <PersonSelect
           optionGroups={personOptionGroups}
           placeholder="输入或选择记录人"
-          style={{ width: WIDTH.person }}
         />
       </Form.Item>
 
-      <Form.Item name="content" label="会议内容">
+      <Form.Item name="content" label="会议内容" className="span-all">
         <TextArea rows={6} placeholder="会议讨论了什么、有什么结论" />
       </Form.Item>
 
-      <Form.Item label="附件">
+      {/* 附件：把「保存后才上传」这条关键差别放进字段说明（extra），
+          与其余表单的提示同一处、同一字号，不再单独排一个 Typography */}
+      <Form.Item
+        label="附件"
+        className="span-all"
+        extra={
+          meetingId
+            ? "点「打开」下载；删除不可恢复。"
+            : "保存后才会开始上传。"
+        }
+      >
         {meetingId ? (
           <Space direction="vertical" style={{ width: "100%" }} size={12}>
             <Upload
@@ -206,34 +220,20 @@ export default function MeetingForm({
             />
           </Space>
         ) : (
-          <>
-            <Upload
-              beforeUpload={(file) => {
-                setPendingFiles((prev) => [...prev, file]);
-                return false;
-              }}
-              onRemove={(file) => {
-                setPendingFiles((prev) => prev.filter((f) => f.name !== file.name));
-              }}
-              multiple
-            >
-              <Button icon={<UploadOutlined />}>选择文件</Button>
-            </Upload>
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              保存后才会开始上传
-            </Text>
-          </>
+          <Upload
+            beforeUpload={(file) => {
+              setPendingFiles((prev) => [...prev, file]);
+              return false;
+            }}
+            onRemove={(file) => {
+              setPendingFiles((prev) => prev.filter((f) => f.name !== file.name));
+            }}
+            multiple
+          >
+            <Button icon={<UploadOutlined />}>选择文件</Button>
+          </Upload>
         )}
       </Form.Item>
-
-      <Form.Item>
-        <Space>
-          <Button type="primary" htmlType="submit" loading={submitting}>
-            保存
-          </Button>
-          <Button onClick={onCancel}>取消</Button>
-        </Space>
-      </Form.Item>
-    </Form>
+    </FormShell>
   );
 }

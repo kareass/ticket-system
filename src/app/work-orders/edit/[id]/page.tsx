@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Button, Card, message, Result, Spin } from "antd";
+import { Button, Empty, message, Skeleton } from "antd";
 import type { WorkOrder } from "@/types";
 import { useAppStore } from "@/store/store";
 import { workOrderApi } from "@/lib/api";
 import { toErrorMessage } from "@/lib/errors";
+import Surface from "@/components/common/Surface";
 import WorkOrderForm, {
   type WorkOrderFormValues,
 } from "@/components/WorkOrderForm";
@@ -81,31 +82,32 @@ export default function EditWorkOrderPage() {
     }
   };
 
+  // 加载态与「不存在」都与 FormShell 同一块板、同一个标题，只换板内内容 ——
+  // 三种状态之间是同一个版面的三种填充，不是三个页面。
   if (checking) {
     return (
-      <Card title="编辑工单">
-        <div style={{ padding: "48px 0", textAlign: "center" }}>
-          <Spin size="large" />
-          <div style={{ marginTop: 12, color: "#999" }}>加载工单中…</div>
+      <Surface style={{ maxWidth: 960 }}>
+        <div className="page-head">
+          <h1>编辑工单</h1>
         </div>
-      </Card>
+        <Skeleton className="form-skeleton" active paragraph={{ rows: 6 }} />
+      </Surface>
     );
   }
 
   if (!workOrder) {
     return (
-      <Card title="编辑工单">
-        <Result
-          status="warning"
-          title="工单不存在"
-          subTitle="未找到对应工单，可能已被删除或链接有误。"
-          extra={
-            <Button type="primary" onClick={() => router.push("/work-orders")}>
-              返回工单列表
-            </Button>
-          }
-        />
-      </Card>
+      <Surface style={{ maxWidth: 960 }}>
+        <div className="page-head">
+          <h1>编辑工单</h1>
+        </div>
+        <div className="form-notice">
+          <Empty description="未找到该工单，可能已被删除或链接有误。" />
+          <Button type="primary" onClick={() => router.push("/work-orders")}>
+            返回工单列表
+          </Button>
+        </div>
+      </Surface>
     );
   }
 

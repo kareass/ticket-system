@@ -16,10 +16,8 @@ import type { ColumnsType } from "antd/es/table";
 import { PlusOutlined, ReloadOutlined, SearchOutlined } from "@ant-design/icons";
 import type { Requirement, RequirementNode } from "@/types";
 import {
-  NODE_COLORS,
   NODE_OPTIONS,
   SUBMITTER_OPTIONS,
-  SYSTEM_COLORS,
   SYSTEM_OPTIONS,
   YES_NO_OPTIONS,
   asSelectOptions,
@@ -198,7 +196,6 @@ export default function RequirementListPage() {
           <EditableChip
             value={system}
             options={systemOptions}
-            colorOf={(s) => SYSTEM_COLORS[s]}
             dirty={drafts.isFieldDirty(record.id, "system")}
             onChange={(val) =>
               drafts.stage(record.id, { system: val } as Partial<Requirement>)
@@ -248,7 +245,6 @@ export default function RequirementListPage() {
           <EditableChip
             value={currentNode}
             options={nodeOptions}
-            colorOf={(n) => NODE_COLORS[n]}
             dirty={drafts.isFieldDirty(record.id, "currentNode")}
             onChange={(val) =>
               drafts.stage(record.id, { currentNode: val } as Partial<Requirement>)

@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Card, Empty, message, Skeleton } from "antd";
+import { Button, Empty, message, Skeleton } from "antd";
 import { useAppStore } from "@/store/store";
 import { reminderApi } from "@/lib/api";
 import { toErrorMessage } from "@/lib/errors";
+import Surface from "@/components/common/Surface";
 import ReminderForm, { type ReminderFormValues } from "@/components/ReminderForm";
 
 /**
@@ -64,12 +65,31 @@ export default function EditReminderPage({
     }
   };
 
-  if (loading) return <Skeleton active />;
+  // 加载态与「不存在」都与 FormShell 同一块板、同一个标题，只换板内内容
+  if (loading) {
+    return (
+      <Surface style={{ maxWidth: 960 }}>
+        <div className="page-head">
+          <h1>编辑提醒</h1>
+        </div>
+        <Skeleton className="form-skeleton" active paragraph={{ rows: 6 }} />
+      </Surface>
+    );
+  }
+
   if (!reminder) {
     return (
-      <Card>
-        <Empty description="提醒不存在，可能已被删除" />
-      </Card>
+      <Surface style={{ maxWidth: 960 }}>
+        <div className="page-head">
+          <h1>编辑提醒</h1>
+        </div>
+        <div className="form-notice">
+          <Empty description="未找到该提醒，可能已被删除或链接有误。" />
+          <Button type="primary" onClick={() => router.push("/reminders")}>
+            返回提醒列表
+          </Button>
+        </div>
+      </Surface>
     );
   }
 

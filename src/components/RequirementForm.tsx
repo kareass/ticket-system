@@ -4,11 +4,12 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import dayjs from "dayjs";
 import type { Dayjs } from "dayjs";
-import { Button, Card, DatePicker, Form, Input, Select, Switch } from "antd";
+import { DatePicker, Form, Input, Select, Switch } from "antd";
 import type { Requirement, RequirementNode } from "@/types";
 import { NODE_OPTIONS, SUBMITTER_OPTIONS, YES_NO_OPTIONS, asSelectOptions } from "@/types";
 import { diffDays, today } from "@/lib/utils";
 import SystemSelect from "@/components/common/SystemSelect";
+import FormShell from "@/components/common/FormShell";
 
 /**
  * 需求表单提交值
@@ -104,40 +105,10 @@ function calcDevDaysFromFields(
 }
 
 /**
- * SystemSelect 在 Form.Item 中的适配壳。
- * Form.Item 会把 value/onChange 注入直接子元素，因此这里用组件转发给 SystemSelect，
- * 并显式给定宽度（antd Select 宽度随内容/占位文案变化，不固定会出现选中后控件变窄的跳动）。
+ * 字段宽度不再逐个写死（原 WIDTH 表已删）：控件一律撑满所在**格宽**（约 300px），
+ * 由 globals.css 的 `.form-grid` 统一给。SystemSelect 直接吃 Form.Item 注入的
+ * value/onChange，那个只为注入固定宽度而存在的适配壳随之删掉。
  */
-function SystemSelectFormField(props: {
-  value?: string;
-  onChange?: (value: string) => void;
-  width?: number;
-}) {
-  return (
-    <SystemSelect
-      value={props.value}
-      onChange={props.onChange}
-      style={{ width: props.width ?? WIDTH.system }}
-    />
-  );
-}
-
-/**
- * 下拉框/日期选择器宽度（px）：按选项文案实际长度取值。
- * 表单容器统一 960px，控件不再一律撑满，避免仅 2~5 个字的下拉框被拉成整行。
- */
-const WIDTH = {
-  /** 日期 / 发版时间：YYYY-MM-DD */
-  date: 160,
-  /** 系统：WMS / ERP / TMS / SCM / 追溯中心 / 其他 */
-  system: 160,
-  /** 当前节点：方案中 / 开发中 / 测试中 / 测试完毕 / 已合并 / 已发布 */
-  currentNode: 180,
-  /** 是否加急：是 / 否 */
-  isUrgent: 120,
-  /** 提交人：黄傲 / 陈婷婷 */
-  submitter: 120,
-} as const;
 
 /** 组装 antd Form 的 initialValues：date/releaseDate 字符串转 dayjs；创建模式默认今天 + WMS + 方案中 */
 function buildFormInitial(
@@ -191,7 +162,7 @@ export default function RequirementForm({
   // 提交中状态：mock 为同步写入，仍保留 loading 位，后续接真实 API 可感知
   const [submitting, setSubmitting] = useState(false);
 
-  const cardTitle = mode === "create" ? "新建需求" : "编辑需求";
+  const pageTitle = mode === "create" ? "新建需求" : "编辑需求";
   const submitText = mode === "create" ? "创建需求" : "保存修改";
 
   // antd Form 的 initialValues 只在首次挂载时读取；页面每次进入都会重新挂载，使用 useMemo 无副作用
@@ -255,144 +226,125 @@ export default function RequirementForm({
   };
 
   return (
-    <Card title={cardTitle}>
-      {/* 限制表单列宽，避免整卡宽度下输入框过长；当前 960px */}
-      <div style={{ maxWidth: 960 }}>
-        <Form<RequirementFormFields>
-          form={form}
-          layout="vertical"
-          initialValues={formInitialValues}
-          onFinish={handleFinish}
+    <FormShell<RequirementFormFields>
+      title={pageTitle}
+      form={form}
+      initialValues={formInitialValues}
+      onFinish={handleFinish}
+      submitText={submitText}
+      submitting={submitting}
+      onCancel={handleCancel}
+    >
+      {/* 第一行：日期 → 开发时长 → 系统。开发时长紧跟日期，它与日期的
+          「读取关系」因此一眼可见（时长正是从日期起算的） */}
+      <Form.Item
+        label="日期"
+        name="date"
+        rules={[{ required: true, message: "请选择日期" }]}
+      >
+        <DatePicker placeholder="请选择日期" allowClear={false} />
+      </Form.Item>
+
+      {/* 开发时长：只读展示，非表单项（无 name），不写入提交的字段集合 */}
+      <Form.Item
+        label="开发时长"
+        extra="自动计算、不可编辑：未发版为「日期 → 今天」，已发版为「日期 → 发版时间」，含当天。"
+      >
+        <span className="form-readout">
+          {devDays}
+          <em>天</em>
+        </span>
+      </Form.Item>
+
+      <Form.Item
+        label="系统"
+        name="system"
+        rules={[{ required: true, message: "请选择系统" }]}
+      >
+        <SystemSelect />
+      </Form.Item>
+
+      {/* 第二行：三个分类值 —— 编号 / 提交人 / 节点 */}
+      <Form.Item label="需求ID" name="requirementId">
+        <Input
+          placeholder={
+            mode === "create"
+              ? "选填，如 R-2026-001（全局唯一）"
+              : "选填，留空即清除编号"
+          }
+        />
+      </Form.Item>
+
+      <Form.Item
+        label="提交人"
+        name="submittedBy"
+        rules={[{ required: true, message: "请选择提交人" }]}
+        extra="黄傲 / 陈婷婷；历史记录可为空"
+      >
+        <Select
+          placeholder="请选择提交人"
+          options={submitterOptions}
+          allowClear
+        />
+      </Form.Item>
+
+      <Form.Item
+        label="当前节点"
+        name="currentNode"
+        rules={[{ required: true, message: "请选择当前节点" }]}
+      >
+        <Select placeholder="请选择当前节点" options={nodeOptions} />
+      </Form.Item>
+
+      {/* 第三行：两个开关 + 由「是否发版」带出来的发版时间。
+          发版时间排在这一行的第三格，开关一开，它就出现在紧邻的空位上 ——
+          比另起一行更符合因果（它是这个开关的结果，不是下一个字段） */}
+      <Form.Item
+        label="是否加急"
+        name="isUrgent"
+        rules={[{ required: true, message: "请选择是否加急" }]}
+      >
+        <Select placeholder="请选择是否加急" options={urgentOptions} />
+      </Form.Item>
+
+      <Form.Item
+        label="是否发版"
+        name="isReleased"
+        valuePropName="checked"
+        extra="开启后需选择发版时间，开发时长改按「日期 → 发版时间」计算。"
+      >
+        <Switch />
+      </Form.Item>
+
+      {/* 发版时间联动：仅当 isReleased=true 渲染且必填；关闭时卸载（preserve=false）自动清空残留值 */}
+      {watchedIsReleased ? (
+        <Form.Item
+          label="发版时间"
+          name="releaseDate"
+          preserve={false}
+          rules={[{ required: true, message: "请选择发版时间" }]}
         >
-          <Form.Item
-            label="日期"
-            name="date"
-            rules={[{ required: true, message: "请选择日期" }]}
-          >
-            <DatePicker
-              style={{ width: WIDTH.date }}
-              placeholder="请选择日期"
-              allowClear={false}
-            />
-          </Form.Item>
+          <DatePicker placeholder="请选择发版时间" allowClear={false} />
+        </Form.Item>
+      ) : null}
 
-          {/* 开发时长：只读展示，非表单项（无 name），不写入提交的字段集合 */}
-          <Form.Item
-            label="开发时长"
-            extra="自动计算、不可编辑：未发版为「日期 → 今天」，已发版为「日期 → 发版时间」，含当天。"
-          >
-            <span style={{ fontSize: 16, fontWeight: 600 }}>{devDays} 天</span>
-          </Form.Item>
+      <Form.Item label="需求标题" name="title" className="span-all">
+        <Input className="narrow" placeholder="选填，如：WMS 出库单打印优化" />
+      </Form.Item>
 
-          <Form.Item label="需求ID" name="requirementId">
-            <Input
-              placeholder={
-                mode === "create"
-                  ? "选填，如 R-2026-001（全局唯一）"
-                  : "选填，留空即清除编号"
-              }
-            />
-          </Form.Item>
+      <Form.Item label="需求内容" name="content" className="span-all">
+        <Input.TextArea
+          rows={6}
+          placeholder="选填，描述需求背景、范围与验收期望"
+        />
+      </Form.Item>
 
-          <Form.Item label="需求标题" name="title">
-            <Input placeholder="选填，如：WMS 出库单打印优化" />
-          </Form.Item>
-
-          <Form.Item label="需求内容" name="content">
-            <Input.TextArea
-              rows={6}
-              placeholder="选填，描述需求背景、范围与验收期望"
-            />
-          </Form.Item>
-
-          <Form.Item
-            label="系统"
-            name="system"
-            rules={[{ required: true, message: "请选择系统" }]}
-          >
-            <SystemSelectFormField width={WIDTH.system} />
-          </Form.Item>
-
-          <Form.Item
-            label="提交人"
-            name="submittedBy"
-            rules={[{ required: true, message: "请选择提交人" }]}
-            extra="需求提交人，黄傲 / 陈婷婷（历史记录可为空）"
-          >
-            <Select
-              style={{ width: WIDTH.submitter }}
-              placeholder="请选择提交人"
-              options={submitterOptions}
-              allowClear
-            />
-          </Form.Item>
-
-          <Form.Item
-            label="当前节点"
-            name="currentNode"
-            rules={[{ required: true, message: "请选择当前节点" }]}
-          >
-            <Select
-              style={{ width: WIDTH.currentNode }}
-              placeholder="请选择当前节点"
-              options={nodeOptions}
-            />
-          </Form.Item>
-
-          <Form.Item
-            label="是否加急"
-            name="isUrgent"
-            rules={[{ required: true, message: "请选择是否加急" }]}
-          >
-            <Select
-              style={{ width: WIDTH.isUrgent }}
-              placeholder="请选择是否加急"
-              options={urgentOptions}
-            />
-          </Form.Item>
-
-          <Form.Item
-            label="是否发版"
-            name="isReleased"
-            valuePropName="checked"
-            extra="开启后需选择发版时间，开发时长将按「日期 → 发版时间」计算。"
-          >
-            <Switch />
-          </Form.Item>
-
-          {/* 发版时间联动：仅当 isReleased=true 渲染且必填；关闭时卸载（preserve=false）自动清空残留值 */}
-          {watchedIsReleased ? (
-            <Form.Item
-              label="发版时间"
-              name="releaseDate"
-              preserve={false}
-              rules={[{ required: true, message: "请选择发版时间" }]}
-            >
-              <DatePicker
-                style={{ width: WIDTH.date }}
-                placeholder="请选择发版时间"
-                allowClear={false}
-              />
-            </Form.Item>
-          ) : null}
-
-          <Form.Item label="备注" name="remark">
-            <Input.TextArea
-              rows={4}
-              placeholder="选填，补充说明（如关联工单、经办人等）"
-            />
-          </Form.Item>
-
-          <div style={{ marginTop: 8 }}>
-            <Button type="primary" htmlType="submit" loading={submitting}>
-              {submitText}
-            </Button>
-            <Button style={{ marginLeft: 8 }} onClick={handleCancel}>
-              取消
-            </Button>
-          </div>
-        </Form>
-      </div>
-    </Card>
+      <Form.Item label="备注" name="remark" className="span-all">
+        <Input.TextArea
+          rows={3}
+          placeholder="选填，补充说明（如关联工单、经办人等）"
+        />
+      </Form.Item>
+    </FormShell>
   );
 }

@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import type { SortState } from "@/lib/sortRows";
+import { MOSS } from "@/lib/theme";
 
 export interface SortableHeaderProps<T> {
   /** 列名文本 */
@@ -50,7 +51,9 @@ export default function SortableHeader<T>({
           width: 10,
           marginRight: 2,
           fontSize: 10,
-          color: active ? "#1677ff" : "#bfbfbf",
+          /* 激活用强调色的文字版（不是填充版：10px 的三角太小，浅橄榄看不清）；
+             未排序列的提示降到装饰灰，够看见、不抢戏 */
+          color: active ? MOSS.accentInk : MOSS.ornament,
         }}
       >
         {order === "ascend" ? "▲" : order === "descend" ? "▼" : "⇅"}

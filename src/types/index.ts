@@ -12,10 +12,13 @@
 // 想新增一个下拉选项：**只改下面数组里的一行**。
 //   - 数组声明为 as const，联合类型由数组自动推导（typeof ARR[number]），
 //     不必再手改类型定义；
-//   - 节点与工单状态的配色表是 Record<联合类型, string>，漏加配色会直接编译报错；
-//     但系统的配色表 SYSTEM_COLORS 是宽松的 Record<string, string>，漏加**不会**报错，
-//     会静默退回默认色（该表当前未被消费，见其定义处的说明）；
 //   - 无需数据库迁移：schema.prisma 中这些字段是普通 String 列，不是数据库枚举。
+//
+// 本文件里曾有三张「标签配色表」（SYSTEM_COLORS / WORK_ORDER_STATUS_COLORS /
+// NODE_COLORS），它们唯一的消费方是 EditableChip 的 colorOf 参数，而那个参数
+// 早已被忽略 —— 也就是说在苔绿方向之前就已经是死代码。苔绿方向把「颜色是稀缺
+// 资源」定成硬约束（只留给「未提交」与「异常/逾期」两件事）之后，这三张表连同
+// 其消费点一并删除了。**别照着旧文档、旧计划再补回来。**
 //
 // ⚠️ 需求节点 NODE_OPTIONS 的取值写死在设计文档里，增删节点属于需求变更，
 //    应先改设计文档再改这里；系统 SYSTEM_OPTIONS 在设计文档中未枚举，可直接增删。
@@ -78,38 +81,6 @@ export function asSelectOptions<T extends string>(
 ): { label: T; value: T }[] {
   return values.map((value) => ({ label: value, value }));
 }
-
-// ---------- 标签配色（与上面的选项一一对应，新增选项时同步补一行） ----------
-
-/** 系统标签配色（未覆盖的系统退回默认灰色） */
-export const SYSTEM_COLORS: Record<string, string> = {
-  WMS: "blue",
-  ERP: "purple",
-  TMS: "orange",
-  SCM: "green",
-  追溯中心: "magenta",
-  其他: "gold",
-};
-
-/** 工单状态标签配色 */
-export const WORK_ORDER_STATUS_COLORS: Record<WorkOrderStatus, string> = {
-  新建: "gold",
-  已处理: "success",
-  已关闭: "default",
-  处理中: "processing",
-  待优化: "cyan",
-};
-
-/** 需求节点标签配色 */
-export const NODE_COLORS: Record<RequirementNode, string> = {
-  方案中: "default",
-  开发中: "processing",
-  测试中: "warning",
-  测试完毕: "geekblue",
-  已合并: "cyan",
-  已发布: "success",
-  退回: "error",
-};
 
 // ---------- 工单 WorkOrder ----------
 export interface WorkOrder {

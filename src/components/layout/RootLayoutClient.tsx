@@ -164,7 +164,7 @@ export default function RootLayoutClient({
         )}
       </Sider>
 
-      {/* 右侧内容：各页自己用 Card 浮成第二张卡片，这里只给边距 */}
+      {/* 右侧内容：各页自己用 Surface 浮成卡片，这里只给边距 */}
       <Content
         style={{
           background: "transparent",

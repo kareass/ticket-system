@@ -4,11 +4,12 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import dayjs from "dayjs";
 import type { Dayjs } from "dayjs";
-import { Button, Card, DatePicker, Form, Input, Select, Switch } from "antd";
+import { DatePicker, Form, Input, Select, Switch } from "antd";
 import type { WorkOrder, WorkOrderStatus } from "@/types";
 import { SUBMITTER_OPTIONS, WORK_ORDER_STATUS_OPTIONS, asSelectOptions } from "@/types";
 import { today } from "@/lib/utils";
 import SystemSelect from "@/components/common/SystemSelect";
+import FormShell from "@/components/common/FormShell";
 
 // 工单状态可选项（唯一来源：src/types，与列表页内联可改共用同一份）
 const STATUS_OPTIONS = asSelectOptions(WORK_ORDER_STATUS_OPTIONS);
@@ -76,40 +77,12 @@ interface WorkOrderFormFields {
 }
 
 /**
- * 下拉框/日期选择器宽度（px）：按选项文案实际长度取值。
- * 表单容器统一 960px，控件不再一律撑满，避免仅 2~5 个字的下拉框被拉成整行。
+ * 字段宽度不再逐个写死（原 WIDTH 表已删）：控件一律撑满所在**格宽**（约 300px），
+ * 由 globals.css 的 `.form-grid` 统一给。原注释担心的「下拉框被拉成整行」说的是
+ * 单列布局下的 960px，一格撑满只有它的三分之一，两者不是一回事。
+ * SystemSelect 也直接吃 Form.Item 注入的 value/onChange，那个只为注入固定宽度
+ * 而存在的适配壳（SystemSelectFormField）随之删掉。
  */
-const WIDTH = {
-  /** 日期：YYYY-MM-DD */
-  date: 160,
-  /** 系统：WMS / ERP / TMS / SCM / 追溯中心 / 其他 */
-  system: 160,
-  /** 工单状态：新建 / 已处理 / 已关闭 */
-  status: 160,
-  /** 需求ID 文本：如 R-2026-001 */
-  requirementId: 220,
-  /** 提交人：黄傲 / 陈婷婷 */
-  submitter: 120,
-} as const;
-
-/**
- * SystemSelect 在 Form.Item 中的适配壳。
- * Form.Item 会把 value/onChange 注入直接子元素，因此这里用组件转发给 SystemSelect，
- * 并显式给定宽度（antd Select 宽度随内容/占位文案变化，不固定会出现选中后控件变窄的跳动）。
- */
-function SystemSelectFormField(props: {
-  value?: string;
-  onChange?: (value: string) => void;
-  width?: number;
-}) {
-  return (
-    <SystemSelect
-      value={props.value}
-      onChange={props.onChange}
-      style={{ width: props.width ?? WIDTH.system }}
-    />
-  );
-}
 
 /** 组装 antd Form 的 initialValues：date 字符串转 dayjs；创建模式默认今天 + WMS + 新建 */
 function buildFormInitial(
@@ -158,7 +131,7 @@ export default function WorkOrderForm({
   // 提交中状态：mock 为同步写入，仍保留 loading 位，后续接真实 API 可感知
   const [submitting, setSubmitting] = useState(false);
 
-  const cardTitle = mode === "create" ? "新建工单" : "编辑工单";
+  const pageTitle = mode === "create" ? "新建工单" : "编辑工单";
   const submitText = mode === "create" ? "创建工单" : "保存修改";
 
   // 已转需求的工单：不允许在此关闭开关（需先删除关联需求），锁定并给出说明
@@ -215,167 +188,151 @@ export default function WorkOrderForm({
   };
 
   return (
-    <Card title={cardTitle}>
-      {/* 限制表单列宽，避免整卡宽度下输入框过长；当前 960px */}
-      <div style={{ maxWidth: 960 }}>
-        <Form<WorkOrderFormFields>
-          form={form}
-          layout="vertical"
-          initialValues={formInitialValues}
-          onFinish={handleFinish}
-        >
-          <Form.Item
-            label="日期"
-            name="date"
-            rules={[{ required: true, message: "请选择日期" }]}
-          >
-            <DatePicker
-              style={{ width: WIDTH.date }}
-              placeholder="请选择日期"
-              allowClear={false}
-            />
-          </Form.Item>
+    <FormShell<WorkOrderFormFields>
+      title={pageTitle}
+      form={form}
+      initialValues={formInitialValues}
+      onFinish={handleFinish}
+      submitText={submitText}
+      submitting={submitting}
+      onCancel={handleCancel}
+    >
+      {/* 第一行：三个短值 —— 日期 / 系统 / 提交人 */}
+      <Form.Item
+        label="日期"
+        name="date"
+        rules={[{ required: true, message: "请选择日期" }]}
+      >
+        <DatePicker placeholder="请选择日期" allowClear={false} />
+      </Form.Item>
 
-          <Form.Item
-            label="标题"
-            name="title"
-            rules={[{ required: true, whitespace: true, message: "请输入标题" }]}
-          >
-            <Input placeholder="请输入标题，如：WMS 出库单打印优化" />
-          </Form.Item>
+      <Form.Item
+        label="系统"
+        name="system"
+        rules={[{ required: true, message: "请选择系统" }]}
+      >
+        <SystemSelect />
+      </Form.Item>
 
-          <Form.Item
-            label="工单内容"
-            name="content"
-            rules={[
-              { required: true, whitespace: true, message: "请输入工单内容" },
-            ]}
-          >
-            <Input.TextArea
-              rows={8}
-              placeholder="请描述工单内容、背景与期望结果"
-            />
-          </Form.Item>
+      <Form.Item
+        label="提交人"
+        name="submittedBy"
+        rules={[{ required: true, message: "请选择提交人" }]}
+        extra="黄傲 / 陈婷婷；历史记录可为空"
+      >
+        <Select
+          placeholder="请选择提交人"
+          options={SUBMITTER_SELECT_OPTIONS}
+          allowClear
+        />
+      </Form.Item>
 
-          <Form.Item
-            label="系统"
-            name="system"
-            rules={[{ required: true, message: "请选择系统" }]}
-          >
-            <SystemSelectFormField width={WIDTH.system} />
-          </Form.Item>
+      <Form.Item
+        label="标题"
+        name="title"
+        className="span-all"
+        rules={[{ required: true, whitespace: true, message: "请输入标题" }]}
+      >
+        <Input
+          className="narrow"
+          placeholder="请输入标题，如：WMS 出库单打印优化"
+        />
+      </Form.Item>
 
-          <Form.Item
-            label="提交人"
-            name="submittedBy"
-            rules={[{ required: true, message: "请选择提交人" }]}
-            extra="工单提交人，黄傲 / 陈婷婷（历史记录可为空）"
-          >
-            <Select
-              style={{ width: WIDTH.submitter }}
-              placeholder="请选择提交人"
-              options={SUBMITTER_SELECT_OPTIONS}
-              allowClear
-            />
-          </Form.Item>
+      <Form.Item
+        label="工单内容"
+        name="content"
+        className="span-all"
+        rules={[{ required: true, whitespace: true, message: "请输入工单内容" }]}
+      >
+        <Input.TextArea rows={6} placeholder="请描述工单内容、背景与期望结果" />
+      </Form.Item>
 
-          <Form.Item
-            label="状态"
-            name="status"
-            rules={[{ required: true, message: "请选择工单状态" }]}
-            extra="新建 / 已处理 / 已关闭，可随工单处理进度手动调整"
-          >
-            <Select
-              style={{ width: WIDTH.status }}
-              placeholder="请选择工单状态"
-              options={STATUS_OPTIONS}
-            />
-          </Form.Item>
+      <Form.Item
+        label="状态"
+        name="status"
+        rules={[{ required: true, message: "请选择工单状态" }]}
+        extra="新建 / 已处理 / 已关闭，可随处理进度手动调整"
+      >
+        <Select placeholder="请选择工单状态" options={STATUS_OPTIONS} />
+      </Form.Item>
 
-          <Form.Item
-            label="是否转需求"
-            name="isConvertToRequirement"
-            valuePropName="checked"
-            extra={
-              convertedLocked
-                ? `该工单已转为需求${initialValues?.requirementId ? `（${initialValues.requirementId}）` : ""}，如需取消请先在需求列表删除该需求。`
-                : "开启后下方「需求ID」才可填写，保存时按其自动同步创建需求。若只想在列表点「转需求」，可不开此开关。"
+      {/* 开关占两格：它的说明文字（尤其已锁定转需求那条）在三分之一格里会折断成三行 */}
+      <Form.Item
+        label="是否转需求"
+        name="isConvertToRequirement"
+        valuePropName="checked"
+        className="span-2"
+        extra={
+          convertedLocked
+            ? `该工单已转为需求${initialValues?.requirementId ? `（${initialValues.requirementId}）` : ""}，如需取消请先在需求列表删除该需求。`
+            : "开启后下方「需求ID」才可填写，保存时按其自动同步创建需求。若只想在列表点「转需求」，可不开此开关。"
+        }
+      >
+        <Switch
+          disabled={convertedLocked}
+          onChange={(checked) => {
+            // 关闭转需求时一并清空「需求ID / 需求内容」：这两个字段仅在转需求时有意义，
+            // 否则会留下一个指向不存在需求的编号（要转需求可在列表点「转需求」填编号）
+            // 开启时不做任何预填 —— 需求内容填什么就是什么，留空即转出「内容为空」的需求
+            if (!checked) {
+              form.setFieldsValue({ requirementId: "", requirementContent: "" });
             }
-          >
-            <Switch
-              disabled={convertedLocked}
-              onChange={(checked) => {
-                // 关闭转需求时一并清空「需求ID / 需求内容」：这两个字段仅在转需求时有意义，
-                // 否则会留下一个指向不存在需求的编号（要转需求可在列表点「转需求」填编号）
-                // 开启时不做任何预填 —— 需求内容填什么就是什么，留空即转出「内容为空」的需求
-                if (!checked) {
-                  form.setFieldsValue({ requirementId: "", requirementContent: "" });
-                }
-              }}
-            />
-          </Form.Item>
+          }}
+        />
+      </Form.Item>
 
-          <Form.Item
-            label="需求ID"
-            name="requirementId"
-            dependencies={["isConvertToRequirement"]}
-            rules={[
-              ({ getFieldValue }) => ({
-                validator(_rule, value) {
-                  // 仅「是否转需求=是」时必填（未开启时字段禁用，值恒为空）
-                  if (getFieldValue("isConvertToRequirement") !== true) {
-                    return Promise.resolve();
-                  }
-                  return String(value ?? "").trim()
-                    ? Promise.resolve()
-                    : Promise.reject(new Error("已开启转需求，需求ID 必填"));
-                },
-              }),
-            ]}
-            extra={
-              convertOn
-                ? "业务编号，需唯一（如 R-2026-001）；保存工单即按此编号创建需求"
-                : "需先开启上方「是否转需求」；或留空，到列表操作列点「转需求」时再填写"
-            }
-          >
-            <Input
-              style={{ width: WIDTH.requirementId }}
-              disabled={!convertOn}
-              placeholder={convertOn ? "如 R-2026-001" : "请先开启「是否转需求」"}
-            />
-          </Form.Item>
-
-          <Form.Item
-            label="需求内容"
-            name="requirementContent"
-            extra="转需求时同步到需求表；留空则需求内容也为空（不会自动取标题）"
-          >
-            <Input.TextArea
-              rows={6}
-              disabled={!convertOn}
-              placeholder={
-                convertOn ? "选填，描述需求背景与验收期望" : "请先开启「是否转需求」"
+      {/* 需求ID 与需求内容同属转需求，排在同一行：左边编号、右边内容 */}
+      <Form.Item
+        label="需求ID"
+        name="requirementId"
+        dependencies={["isConvertToRequirement"]}
+        rules={[
+          ({ getFieldValue }) => ({
+            validator(_rule, value) {
+              // 仅「是否转需求=是」时必填（未开启时字段禁用，值恒为空）
+              if (getFieldValue("isConvertToRequirement") !== true) {
+                return Promise.resolve();
               }
-            />
-          </Form.Item>
+              return String(value ?? "").trim()
+                ? Promise.resolve()
+                : Promise.reject(new Error("已开启转需求，需求ID 必填"));
+            },
+          }),
+        ]}
+        extra={
+          convertOn
+            ? "业务编号，需唯一（如 R-2026-001）"
+            : "需先开启上方「是否转需求」；或留空，到列表操作列点「转需求」时再填"
+        }
+      >
+        <Input
+          disabled={!convertOn}
+          placeholder={convertOn ? "如 R-2026-001" : "请先开启「是否转需求」"}
+        />
+      </Form.Item>
 
-          <Form.Item label="备注" name="remark">
-            <Input.TextArea
-              rows={4}
-              placeholder="选填，补充说明（如关联业务、经办人等）"
-            />
-          </Form.Item>
+      <Form.Item
+        label="需求内容"
+        name="requirementContent"
+        className="span-2"
+        extra="转需求时同步到需求表；留空则需求内容也为空（不会自动取标题）"
+      >
+        <Input.TextArea
+          rows={5}
+          disabled={!convertOn}
+          placeholder={
+            convertOn ? "选填，描述需求背景与验收期望" : "请先开启「是否转需求」"
+          }
+        />
+      </Form.Item>
 
-          <div style={{ marginTop: 8 }}>
-            <Button type="primary" htmlType="submit" loading={submitting}>
-              {submitText}
-            </Button>
-            <Button style={{ marginLeft: 8 }} onClick={handleCancel}>
-              取消
-            </Button>
-          </div>
-        </Form>
-      </div>
-    </Card>
+      <Form.Item label="备注" name="remark" className="span-all">
+        <Input.TextArea
+          rows={3}
+          placeholder="选填，补充说明（如关联业务、经办人等）"
+        />
+      </Form.Item>
+    </FormShell>
   );
 }

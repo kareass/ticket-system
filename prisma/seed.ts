@@ -41,9 +41,9 @@ async function main() {
   const wo2 = await prisma.workOrder.create({
     data: {
       date: day("2026-09-03"),
-      title: "OMS 订单同步异常排查",
-      content: "部分订单在 OMS 与 ERP 之间同步状态不一致，需排查数据链路。",
-      system: "OMS",
+      title: "ERP 订单同步异常排查",
+      content: "部分订单在 ERP 与 WMS 之间同步状态不一致，需排查数据链路。",
+      system: "ERP",
       isConvertToRequirement: false,
       remark: "",
       status: "新建",

@@ -25,8 +25,7 @@
 > `REMINDEE_OPTIONS` 转发为 `REMINDEES` 供各接口做 `includes` 校验，
 > 因此**接口校验、表单下拉、列表内联下拉、筛选框四处永远同步**。
 >
-> 新增一个下拉选项只需改 `src/types/index.ts` 里的对应数组（配色表是
-> `Record<联合类型, string>`，漏加配色会编译报错）。**不需要数据库迁移** ——
+> 新增一个下拉选项只需改 `src/types/index.ts` 里的对应数组。**不需要数据库迁移** ——
 > `schema.prisma` 中 `system` / `status` / `currentNode` 是普通 `String` 列而非数据库枚举。
 >
 > ⚠️ `NODE_OPTIONS` 的取值写死在设计文档中，增删节点属需求变更，应先改设计文档；

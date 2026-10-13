@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Button, Card, message, Result, Spin } from "antd";
+import { Button, Empty, message, Skeleton } from "antd";
 import type { Requirement } from "@/types";
 import { useAppStore } from "@/store/store";
 import { requirementApi } from "@/lib/api";
 import { toErrorMessage } from "@/lib/errors";
+import Surface from "@/components/common/Surface";
 import RequirementForm, {
   type RequirementFormValues,
 } from "@/components/RequirementForm";
@@ -81,34 +82,31 @@ export default function EditRequirementPage() {
     }
   };
 
+  // 加载态与「不存在」都与 FormShell 同一块板、同一个标题，只换板内内容
   if (checking) {
     return (
-      <Card title="编辑需求">
-        <div style={{ padding: "48px 0", textAlign: "center" }}>
-          <Spin size="large" />
-          <div style={{ marginTop: 12, color: "#999" }}>加载需求中…</div>
+      <Surface style={{ maxWidth: 960 }}>
+        <div className="page-head">
+          <h1>编辑需求</h1>
         </div>
-      </Card>
+        <Skeleton className="form-skeleton" active paragraph={{ rows: 6 }} />
+      </Surface>
     );
   }
 
   if (!requirement) {
     return (
-      <Card title="编辑需求">
-        <Result
-          status="warning"
-          title="需求不存在"
-          subTitle="未找到对应需求，可能已被删除或链接有误。"
-          extra={
-            <Button
-              type="primary"
-              onClick={() => router.push("/requirements")}
-            >
-              返回需求列表
-            </Button>
-          }
-        />
-      </Card>
+      <Surface style={{ maxWidth: 960 }}>
+        <div className="page-head">
+          <h1>编辑需求</h1>
+        </div>
+        <div className="form-notice">
+          <Empty description="未找到该需求，可能已被删除或链接有误。" />
+          <Button type="primary" onClick={() => router.push("/requirements")}>
+            返回需求列表
+          </Button>
+        </div>
+      </Surface>
     );
   }
 

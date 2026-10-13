@@ -371,6 +371,117 @@ h4,
 }
 
 /* ------------------------------------------------------------------
+   表单页模式（四个创建/编辑页共用，见 common/FormShell.tsx）
+   版面：标题 │ 发丝线 │ 字段网格 │ 发丝线 │ 动作条，全在同一块板上。
+   ------------------------------------------------------------------ */
+/* 字段网格：按**输入形态**分列，不按逻辑分组 ——
+   短值（日期/下拉/单行输入）并排，长文本与开关独占整行。
+   单列堆叠时每个 120px 的下拉都独占一整行、右半边全是空的，是表单页
+   最显眼的「没排过版」；并排之后纵向长度也少掉近一半。
+   顶部那条发丝线是 .page-tools 的同一套做法：标题与内容之间只隔一根线。 */
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  column-gap: 24px;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+/* 独占整行：长文本；开关（它的 extra 说明要横向铺开才不折断）；动作条 */
+.form-grid > .span-all {
+  grid-column: 1 / -1;
+}
+/* 占两格：自带较长说明的开关、需要更宽的控件 */
+.form-grid > .span-2 {
+  grid-column: span 2;
+}
+@media (max-width: 1000px) {
+  .form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .form-grid > .span-2 {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 720px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+  .form-grid > .span-all,
+  .form-grid > .span-2 {
+    grid-column: auto;
+  }
+}
+/* 格内控件撑满**格宽**（约 300px），不是页面宽 —— 两者差别很大：这正是当初
+   「避免下拉框被拉成整行」要防的事，而一格里撑满是正常的。
+   只写 Select 与 DatePicker：这两个 antd 默认宽度随内容/占位文案变化，不写死会
+   在选中值后变窄跳动、整片控件右缘长短不齐（原代码逐个写 160/220 就是在治它）。
+   Input / TextArea 本来就是 100%，不必重复声明。 */
+.form-grid .ant-select,
+.form-grid .ant-picker {
+  width: 100%;
+}
+/* 独占整行的单行输入（标题类）：限宽。它旁边没有邻居撑着，撑满 960px
+   会变成一条过长的横线，读一个标题要一路扫过去。 */
+.form-grid .narrow {
+  max-width: 560px;
+}
+/* 字段说明（Form.Item 的 extra）：比标签（13px）再小一号并退到次要色。
+   antd 默认 14px，与字段本身一样响，注解会抢内容的戏；四个表单的提示
+   文案因此统一在这里定调，不在各表单里各写一个 style。 */
+.form-grid .ant-form-item-extra {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.6;
+}
+/* 只读读数（需求表单的「开发时长」）：它没有输入框。不管的话就会比同行
+   其他控件矮一截、基线错位；定成与控件等高（34px）并用等宽数字。 */
+.form-readout {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 34px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 16px;
+  color: var(--ink);
+}
+.form-readout em {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-style: normal;
+  color: var(--ink2);
+}
+/* 动作条：发丝线以上是字段，以下是「对整张表单的动作」。
+   不用 Form.Item 装按钮 —— 那会给它套上字段级的 margin 与 label 位。 */
+.form-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+/* 编辑页的加载占位：复用 .form-grid 的「上边距 + 发丝线」，
+   骨架与真表单同形 —— 数据到位切换时版面不跳。 */
+.form-skeleton {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+/* 「这条记录不在」：与表单页同一块板、同一个标题，只是板内换成一句说明。
+   不用 antd Result —— 它自带一个大号琥珀色状态图标，是外来的颜色。 */
+.form-notice {
+  margin-top: 20px;
+  padding: 40px 0 8px;
+  border-top: 1px solid var(--line);
+  text-align: center;
+}
+.form-notice .ant-empty {
+  margin-bottom: 12px;
+}
+
+/* ------------------------------------------------------------------
    首页 · 模块卡（一行两块）
    卡片形态是用户定的。这里补的是「四块等大、只有图标颜色不同的卡没有信息差」
    这个洞：每张卡的下缘挂一条该模块的**实时计数**，卡片于是从「导航的重复」
@@ -497,6 +608,52 @@ h4,
   text-decoration-color: var(--ornament);
   text-underline-offset: 3px;
   cursor: help;
+}
+
+/* ------------------------------------------------------------------
+   附件列表（会议纪要表单内）
+   嵌在表单板里，所以不能再用带边框的卡片 —— 卡片套卡片是本方向的禁令。
+   行列表：缩略图/扩展名 + 文件名（长名省略号，title 看全）+ 大小 + 动作。
+   ------------------------------------------------------------------ */
+.att-list {
+  border-top: 1px solid var(--line);
+}
+.att-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+  transition: background-color 0.15s;
+}
+.att-row:hover {
+  background: var(--hover);
+}
+/* 缩略图与扩展名方块同尺寸（40），两种行的左缘因此对齐 */
+.att-ext {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  background: var(--bg);
+  font-size: 12px;
+  color: var(--ink2);
+}
+.att-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 字节数是量，等宽 + 次要色 —— 一列大小纵向对齐才好扫 */
+.att-size {
+  flex: none;
+  font-size: 12px;
+  color: var(--ink2);
 }
 
 /* ------------------------------------------------------------------

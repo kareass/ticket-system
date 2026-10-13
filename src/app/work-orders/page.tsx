@@ -21,7 +21,7 @@ import SortableHeader from "@/components/common/SortableHeader";
 import { MOSS } from "@/lib/theme";
 import { useRowDrafts } from "@/lib/useRowDrafts";
 import { createComparator, type SortState } from "@/lib/sortRows";
-import { SYSTEM_OPTIONS, SUBMITTER_OPTIONS, SYSTEM_COLORS, WORK_ORDER_STATUS_COLORS, WORK_ORDER_STATUS_OPTIONS, asSelectOptions } from "@/types";
+import { SYSTEM_OPTIONS, SUBMITTER_OPTIONS, WORK_ORDER_STATUS_OPTIONS, asSelectOptions } from "@/types";
 import type { WorkOrder, WorkOrderStatus } from "@/types";
 import { useAppStore } from "@/store/store";
 import { formatDate, workOrderNo } from "@/lib/utils";
@@ -224,7 +224,6 @@ export default function WorkOrderListPage() {
         <EditableChip
           value={sys}
           options={SYSTEM_OPTIONS.map((v) => ({ label: v, value: v }))}
-          colorOf={(s) => (SYSTEM_COLORS as Record<string, string | undefined>)[s]}
           dirty={drafts.isFieldDirty(record.id, "system")}
           onChange={(v) => drafts.stage(record.id, { system: v } as Partial<WorkOrder>)}
         />
@@ -292,7 +291,6 @@ export default function WorkOrderListPage() {
         <EditableChip
           value={status as WorkOrderStatus}
           options={statusOptions}
-          colorOf={(s) => WORK_ORDER_STATUS_COLORS[s]}
           dirty={drafts.isFieldDirty(record.id, "status")}
           onChange={(v) =>
             drafts.stage(record.id, { status: v as WorkOrderStatus } as Partial<WorkOrder>)

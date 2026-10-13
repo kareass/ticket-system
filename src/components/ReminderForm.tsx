@@ -1,18 +1,13 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef } from "react";
-import { Button, DatePicker, Form, Input, Select, Space } from "antd";
+import { DatePicker, Form, Input, Select } from "antd";
 import dayjs from "dayjs";
 import { REMINDEE_OPTIONS, asSelectOptions } from "@/types";
 import type { Reminder } from "@/types";
+import FormShell from "@/components/common/FormShell";
 
 const { TextArea } = Input;
-
-// 控件宽度按文案取固定值，不要一律撑满表单宽（沿用 F1 验收反馈的做法）
-const WIDTH = {
-  date: 160,
-  remindee: 160,
-};
 
 export interface ReminderFormValues {
   date: dayjs.Dayjs;
@@ -58,19 +53,26 @@ export default function ReminderForm({
     form.setFieldsValue(formInitialValues as ReminderFormValues);
   }, [form, initial?.id, formInitialValues]);
 
+  // 与工单/需求/会议表单同一套口径：有初值即编辑态（新建页不传 initial、编辑页传）
+  const isEdit = Boolean(initial);
+
   return (
-    <Form
+    <FormShell<ReminderFormValues>
+      title={isEdit ? "编辑提醒" : "新建提醒"}
       form={form}
-      layout="vertical"
       initialValues={formInitialValues}
-      onFinish={onSubmit as never}
+      onFinish={onSubmit}
+      submitText={isEdit ? "保存修改" : "创建提醒"}
+      submitting={submitting}
+      onCancel={onCancel}
     >
       <Form.Item
         name="date"
         label="日期"
         rules={[{ required: true, message: "请选择日期" }]}
+        extra="该办这件事的日子。到了日子仍未勾选完成，列表会把整行标红。"
       >
-        <DatePicker style={{ width: WIDTH.date }} placeholder="请选择日期" />
+        <DatePicker placeholder="请选择日期" />
       </Form.Item>
 
       <Form.Item
@@ -80,15 +82,16 @@ export default function ReminderForm({
       >
         {/* 选项唯一来源 src/types —— 不得在此就地写数组 */}
         <Select
-          style={{ width: WIDTH.remindee }}
           placeholder="请选择提醒人"
           options={asSelectOptions(REMINDEE_OPTIONS)}
         />
       </Form.Item>
 
+      {/* 提醒内容：本表单唯一的长文本，独占整行 */}
       <Form.Item
         name="content"
         label="提醒内容"
+        className="span-all"
         rules={[{ required: true, whitespace: true, message: "请填写提醒内容" }]}
       >
         <TextArea
@@ -98,15 +101,6 @@ export default function ReminderForm({
           showCount
         />
       </Form.Item>
-
-      <Form.Item>
-        <Space>
-          <Button type="primary" htmlType="submit" loading={submitting}>
-            保存
-          </Button>
-          <Button onClick={onCancel}>取消</Button>
-        </Space>
-      </Form.Item>
-    </Form>
+    </FormShell>
   );
 }

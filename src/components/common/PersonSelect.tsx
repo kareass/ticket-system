@@ -3,6 +3,7 @@
 import React, { useMemo } from "react";
 import { Select } from "antd";
 import type { DefaultOptionType } from "antd/es/select";
+import { MOSS } from "@/lib/theme";
 
 /**
  * 人名选择器：**可自由输入，也可从候选里点选**。
@@ -97,7 +98,7 @@ export default function PersonSelect({
         <span>
           {opt.data.label}
           {typeof opt.data.count === "number" ? (
-            <span style={{ color: "#999", marginLeft: 8, fontSize: 12 }}>
+            <span style={{ color: MOSS.ink2, marginLeft: 8, fontSize: 12 }}>
               {opt.data.count} 次
             </span>
           ) : null}

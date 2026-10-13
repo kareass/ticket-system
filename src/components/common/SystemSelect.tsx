@@ -16,7 +16,10 @@ interface SystemSelectProps {
   disabled?: boolean;
   /** 未选中时的占位提示 */
   placeholder?: string;
-  /** 自定义样式（表单内一般用 style={{ width: 160 }} 固定宽度，避免撑满整行） */
+  /**
+   * 自定义样式。**表单里一般不用传**：字段宽度由 `.form-grid` 按格宽统一给
+   * （见 globals.css），传了 style 反而会以内联样式盖掉它。
+   */
   style?: CSSProperties;
 }
 

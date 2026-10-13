@@ -34,8 +34,6 @@ interface EditableChipProps<V extends string | boolean> {
    * 一旦每列都着色，加急就淹没在一排彩色里，等于没有颜色。
    */
   tone?: "danger" | "accent";
-  /** 兼容保留：外部曾按值给色，本期改为与字段一致的普通文字色，忽略该参数 */
-  colorOf?: (value: V) => string | undefined;
 }
 
 export default function EditableChip<V extends string | boolean>({
