@@ -2,24 +2,154 @@
 @tailwind components;
 @tailwind utilities;
 
-/* 全局基础样式 */
+/* ==================================================================
+   全局基础 —— 方向：柔和 · 苔绿
+   色值来源：src/lib/theme.ts（改色请改那里，本文件的变量只是它的 CSS 镜像）
+   这里额外负责一件事：**浏览器自带的界面**
+   （选中高亮、光标、滚动条、焦点环、数字对齐、标点间距）。
+   这些默认长相不属于任何一个设计系统，是最便宜的「做过设计」信号。
+   ================================================================== */
+
+:root {
+  --bg: #f4f5f0;
+  --card: #ffffff;
+  --ink: #33372e;
+  --ink2: #6b7160; /* 次要文字 5.05:1 */
+  --ornament: #7e8474; /* 仅装饰 4.2:1 */
+  --accent: #7c8c6a; /* 填充/描边，不当文字 */
+  --accent-ink: #62744f; /* 强调色文字版 5.08:1 */
+  --accent-tint: rgba(124, 140, 106, 0.1);
+  --accent-tint2: rgba(124, 140, 106, 0.18);
+  --line: #e3e6dc;
+  --line2: #dce0d3;
+  --hover: #f8f9f4;
+  --danger: #a34a34;
+  --danger-tint: rgba(181, 83, 60, 0.1);
+  --shadow: 0 1px 4px rgba(51, 55, 46, 0.05);
+  --shadow-lift: 0 2px 10px rgba(51, 55, 46, 0.08);
+  --r-card: 14px;
+  --r-ctl: 10px;
+  --font-sans: "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC",
+    "Hiragino Sans GB", "Source Han Sans SC", "Noto Sans SC", system-ui,
+    -apple-system, sans-serif;
+  --font-mono: "Cascadia Mono", "Consolas", "SF Mono", "Menlo",
+    "DejaVu Sans Mono", ui-monospace, monospace;
+}
+
 html,
 body {
   padding: 0;
   margin: 0;
-  background: #f5f5f5;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-/* antd 容器高度占满 */
 #root,
 .ant-app {
   min-height: 100vh;
 }
 
-/* EditableChip 下拉面板（.ec-chip-dd = antd Dropdown 的 Menu 根）：
-   - 每个选项：语义色圆点 + 文字
-   - 「当前值/原选项」选中项高亮固定 rgb(250,250,250)（不随语义色、不用品牌蓝），
-     保留左侧色点 + 默认对勾 → 一眼看到原选项，且与未选中的其它选项同底色区分度可控 */
+/* ------------------------------------------------------------------
+   浏览器自带界面（默认长相 → 属于本设计）
+   ------------------------------------------------------------------ */
+
+/* 选中高亮：默认是系统蓝，与苔绿打架 */
+::selection {
+  background: var(--accent-tint2);
+  color: var(--ink);
+}
+/* 输入光标也用强调色（默认是黑） */
+input,
+textarea,
+.ant-select-selection-search-input {
+  caret-color: var(--accent-ink);
+}
+
+/* 滚动条：15px 的系统灰条在米白地色上很显眼 */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line2) transparent;
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line2);
+  border-radius: 5px;
+  /* 用透明边框把滑块收窄，视觉上更细 */
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ornament);
+  background-clip: content-box;
+  border: 2px solid transparent;
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* 键盘焦点环：只在键盘操作时出现，不干扰鼠标点击 */
+:focus-visible {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+/* antd 自己的焦点态已经够清楚，避免双环 */
+.ant-btn:focus-visible,
+.ant-input:focus-visible,
+.ant-select-focused .ant-select-selector {
+  outline: none;
+}
+
+/* 数字一律等宽对齐 —— 日期/编号/计数列不对齐是密表最刺眼的问题 */
+.ant-table-cell,
+.ant-pagination,
+.ant-statistic-content {
+  font-variant-numeric: tabular-nums;
+}
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+/* 中文标点：句号/逗号不占满格，正文里更紧凑（Chromium 支持） */
+body {
+  text-spacing-trim: space-first;
+}
+/* 中文不做负字距：拉丁文的 tracking 技巧在汉字上只会让字粘连 */
+h1,
+h2,
+h3,
+h4,
+.ant-card-head-title {
+  letter-spacing: 0.01em;
+}
+
+/* 尊重系统的「减少动态效果」 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ------------------------------------------------------------------
+   EditableChip（列表格内可点选的整格下拉值）
+   行为不变：收起态是普通文字 + 右缘三角，整格可点。
+   本方向只改两件事：悬停底改苔绿浅底、待提交标记改强调色。
+   ------------------------------------------------------------------ */
 .ec-chip-dd {
   padding: 4px !important;
 }
@@ -27,34 +157,105 @@ body {
   border-radius: 6px;
 }
 .ec-chip-dd .ant-dropdown-menu-item .ant-dropdown-menu-title-content {
-  font-size: 12px;
+  font-size: 13px;
 }
 .ec-chip-dd .ec-opt {
   display: inline-flex;
   align-items: center;
   gap: 6px;
 }
-/* 当前值/原选项选中项：底固定 rgb(250,250,250)，文字加深，不随语义色/品牌蓝 */
+/* 当前值/原选项：强调色浅底 + 加深，一眼看到原选项 */
 .ec-chip-dd .ant-dropdown-menu-item-selected {
-  background-color: rgb(250, 250, 250) !important;
+  background-color: var(--accent-tint) !important;
+  color: var(--ink) !important;
   font-weight: 600;
 }
-/* 整格触发区悬停轻反馈 */
-.ec-chip-trigger:hover {
-  background-color: rgba(0, 0, 0, 0.04);
-}
+/* 整格触发区。三种态必须互不混淆：
+   常态 = 无底；悬停 = 中性浅底（很轻，只是「这里能点」）；
+   待提交 = 强调色浅底 + 加粗 + 强调色圆点（明显是「这格改过、还没提交」）。
+   若把悬停也做成强调浅底，鼠标扫过干净格子时会像刚改过 —— 故两者分色。 */
 .ec-chip-trigger {
-  border-radius: 4px;
+  border-radius: 6px;
+}
+.ec-chip-trigger:hover {
+  background-color: var(--hover);
+}
+.ec-chip-trigger.is-dirty {
+  background-color: var(--accent-tint);
+}
+.ec-chip-trigger.is-dirty:hover {
+  background-color: var(--accent-tint2);
+}
+.ec-chip-trigger.is-dirty .ec-chip-val {
+  font-weight: 600;
+}
+.ec-chip-tri {
+  transition: transform 0.15s ease-out;
+}
+.ec-chip-trigger.is-open .ec-chip-tri {
+  transform: translateY(-50%) rotate(180deg);
 }
 
-/* 列表表头标题水平居中（工单/需求两列表共用 ProTable） */
+/* ------------------------------------------------------------------
+   ProTable 表头
+   ------------------------------------------------------------------ */
+/* 表头标题水平居中（工单/需求两列表共用 ProTable） */
 .ant-table-thead > tr > th {
   text-align: center;
 }
+/* 表头底：只有一条发丝线，不要 antd 的浅灰块 */
+.ant-table-thead > tr > th {
+  background: var(--card);
+  border-bottom: 1px solid var(--line2) !important;
+  font-weight: 500;
+  color: var(--ink);
+  letter-spacing: 0.02em;
+}
+/* 可拖排序的表头：鼠标移上去给抓取提示（把手是 ProTable 注入的 6px 透明条） */
+.ant-table-thead > tr > th > div[draggable="true"] {
+  cursor: grab;
+}
+.ant-table-thead > tr > th > div[draggable="true"]:active {
+  cursor: grabbing;
+}
+/* 拖宽把手：默认透明，靠近时才显形 */
+.ant-table-thead > tr > th > span[title="拖动调整列宽"]:hover {
+  box-shadow: inset -1px 0 0 var(--accent);
+}
 
-/* 下拉框（单选中 antd Select）展示内容：选中值/占位水平居中。
-   antd 单选 selection-item/placeholder 为 display:block 撑满格宽，对其 text-align:center 即可；
-   show-arrow 时 antd 已在右侧预留 paddingInlineEnd，此处左端对称预留以免中心偏左。 */
+/* 固定列在横向滚动时要有存在感，否则和内容糊在一起 */
+.ant-table-cell-fix-right-first::after,
+.ant-table-cell-fix-right::after {
+  box-shadow: inset -8px 0 8px -8px rgba(51, 55, 46, 0.1);
+}
+.ant-table-cell-fix-left-last::after {
+  box-shadow: inset 8px 0 8px -8px rgba(51, 55, 46, 0.1);
+}
+
+/* 单元格去掉纵向分隔线（本方向只留横线，密表才不糊） */
+.ant-table-thead > tr > th::before {
+  display: none !important;
+}
+
+/* 行：只用发丝横线分隔，末行不收口（由表尾接管） */
+.ant-table-tbody > tr > td {
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+}
+.ant-table-tbody > tr.ant-table-row:hover > td {
+  background: var(--hover);
+}
+
+/* 表格容器去掉 antd 的圆角包裹边，让它贴在卡片里 */
+.ant-table-wrapper .ant-table {
+  border-radius: 0;
+}
+
+/* ------------------------------------------------------------------
+   下拉筛选（单选中 antd Select）：选中值/占位水平居中。
+   antd 单选 selection-item/placeholder 为 display:block 撑满格宽；
+   show-arrow 时 antd 已在右侧预留 paddingInlineEnd，此处左端对称预留以免中心偏左。
+   ------------------------------------------------------------------ */
 .ant-select-single:not(.ant-select-customize-input)
   .ant-select-selector
   .ant-select-selection-item,
@@ -72,9 +273,246 @@ body {
   padding-inline: 16px;
 }
 
-/* 工作提醒：日期 ≤ 今天且未完成 → 整行文字标红。
+/* ------------------------------------------------------------------
+   全站外壳：左侧导航卡片
+   antd 的 Sider 会再包一层 .ant-layout-sider-children，所以「脚注沉底」
+   不能靠 Sider 自身的 flex —— 必须把里面那层也变成纵向 flex，
+   否则 margin-top:auto 落在普通块里，不起作用。
+   ------------------------------------------------------------------ */
+.app-sider .ant-layout-sider-children {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  /* 导航项多了也不会把脚注顶出卡片（卡片本身 overflow:hidden 裁圆角） */
+  overflow-y: auto;
+}
+/* 菜单按内容高度占位，不被 flex 压缩；脚注靠 margin-top:auto 沉到底 */
+.app-sider .ant-menu {
+  flex: none;
+}
+
+/* ------------------------------------------------------------------
+   页头模式（四个列表页共用）
+   标题与计数同一行：计数靠右、字号小、无强调色 ——
+   它是「一眼确认量级」的台头，不是要抢戏的广告数字。
+   ------------------------------------------------------------------ */
+.page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+.page-head h1 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--ink);
+}
+.page-stats {
+  display: flex;
+  align-items: center;
+  padding-top: 2px;
+}
+.page-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.page-stat + .page-stat {
+  margin-left: 20px;
+  padding-left: 20px;
+  border-left: 1px solid var(--line);
+}
+.page-stat b {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1.25;
+  color: var(--ink);
+}
+.page-stat span {
+  font-size: 12px;
+  color: var(--ink2);
+}
+/* 工具行：与标题之间靠一条发丝线分隔，不用第二层底 */
+.page-tools {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.page-filters {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+/* 筛选字段：文字标签 + 控件。标签在左，控件宽度固定，多个筛选器左缘对齐 */
+.field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.field > label,
+.field > .field-label {
+  /* 定宽 + 右对齐：标签字数不等（「搜索」2 字、「提交人」3 字），
+     不定宽的话各筛选控件的左缘会参差不齐。 */
+  min-width: 36px;
+  font-size: 12px;
+  color: var(--ink2);
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------------
+   首页 · 模块卡（一行两块）
+   卡片形态是用户定的。这里补的是「四块等大、只有图标颜色不同的卡没有信息差」
+   这个洞：每张卡的下缘挂一条该模块的**实时计数**，卡片于是从「导航的重复」
+   变成「一眼看清各模块现在有多少东西」。
+   ------------------------------------------------------------------ */
+.page-sub {
+  margin: 6px 0 0;
+  max-width: 60ch;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--ink2);
+}
+.home-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+@media (max-width: 900px) {
+  .home-grid {
+    grid-template-columns: 1fr;
+  }
+}
+/* 卡片本身是链接，不能用 Surface（它只出 section/div/aside），
+   所以材料和 Surface 对齐：无边框、同样的圆角与极柔投影。 */
+.mod-card {
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  background: var(--card);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow);
+  color: var(--ink);
+  text-decoration: none;
+  transition:
+    box-shadow 0.18s,
+    transform 0.18s,
+    background-color 0.18s;
+}
+/* 悬停抬起一像素 + 投影加深：这是「这块能点」的提示，
+   不加边框、不换底色（底色留给按下） */
+.mod-card:hover {
+  box-shadow: var(--shadow-lift);
+  transform: translateY(-1px);
+}
+.mod-card:hover .mod-name,
+.mod-card:hover .mod-go {
+  color: var(--accent-ink);
+}
+.mod-card:hover .mod-go {
+  transform: translateX(3px);
+}
+/* 按下：落回原位并给一档浅底，比悬停更实 */
+.mod-card:active {
+  background: var(--hover);
+  transform: none;
+}
+.mod-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.mod-ico {
+  display: inline-flex;
+  align-items: center;
+  /* 与左侧导航同一族图标、同一字号 16px，不另起一套 */
+  font-size: 16px;
+  color: var(--ink2);
+}
+.mod-name {
+  font-size: 15px;
+  font-weight: 600;
+  transition: color 0.18s;
+}
+.mod-go {
+  display: inline-flex;
+  align-items: center;
+  margin-left: auto;
+  color: var(--ornament);
+  transition:
+    transform 0.18s ease-out,
+    color 0.18s;
+}
+.mod-desc {
+  margin: 8px 0 0;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--ink2);
+}
+/* 计数条沉到卡底（margin-top:auto），四张卡高度一致时数字就在同一条线上。
+   未加载完时这里是空的 —— **不能**先渲染 0 再跳成真实值。 */
+.mod-stats {
+  display: flex;
+  align-items: flex-start;
+  /* 预留高度：不留的话数字到位时整行卡会一起跳一下 */
+  min-height: 58px;
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+/* 逾期是首页唯一值得标红的东西（与提醒列表的整行红同一套语义） */
+.mod-stats .page-stat.is-alert b {
+  color: var(--danger);
+}
+
+/* 列表格里的非文字状态标记 */
+/* 「已转需求」：实心方块 + 文字。方块与相邻列的下拉三角、待提交方点形状不同，不会看混 */
+.wo-converted {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.wo-converted i {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  background: var(--accent-ink);
+}
+/* 「登记了需求ID 但需求已不存在」：靠虚线下划线而不是颜色区分，
+   颜色在本方向里留给「未提交」与「异常」两件事 */
+.wo-orphan-id {
+  color: var(--ink2);
+  text-decoration: underline;
+  text-decoration-style: dashed;
+  text-decoration-color: var(--ornament);
+  text-underline-offset: 3px;
+  cursor: help;
+}
+
+/* ------------------------------------------------------------------
+   工作提醒：日期 ≤ 今天且未完成 → 整行文字标砖红。
    勾选框与「编辑/删除」链接按钮有各自的配色（antd 给它们发了具体颜色），
-   不参与 color 继承，因此保持原样 —— 这是期望的行为。 */
+   不参与 color 继承，因此保持原样 —— 这是期望的行为。
+   用砖红而非 antd 的 #ff4d4f：冷红在米白地色上是外来色，砖红是本方向的异常色。
+   ------------------------------------------------------------------ */
 .reminder-row-overdue > td {
-  color: #ff4d4f;
+  color: var(--danger);
+}
+
+/* ------------------------------------------------------------------
+   弹框/下拉的遮罩：默认是冷灰黑，改用 ink 色调，浅一点，不压死背景
+   ------------------------------------------------------------------ */
+.ant-modal-mask,
+.ant-drawer-mask {
+  background: rgba(51, 55, 46, 0.35);
 }
