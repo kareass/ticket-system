@@ -4,8 +4,9 @@ import { PrismaClient } from "@prisma/client";
  * 开发/演示种子数据（环节5 起 UI 走真实 API，需要初始数据可看）
  * 运行：npm run db:seed   （prisma migrate reset 也会自动调用）
  *
- * 注意：本脚本会**清空** WorkOrder / Requirement 后重新写入演示数据，
- * 仅供开发与演示环境使用，请勿在生产库执行。
+ * 注意：本脚本会**清空** WorkOrder / Requirement / Meeting / MeetingAttachment /
+ * Reminder 后重新写入演示数据，仅供开发与演示环境使用，请勿在生产库执行。
+ * （不写入会议与提醒的演示数据 —— 保持冒烟脚本依赖的数据基线不变。）
  */
 const prisma = new PrismaClient();
 
@@ -13,9 +14,14 @@ const prisma = new PrismaClient();
 const day = (s: string) => new Date(`${s}T00:00:00.000Z`);
 
 async function main() {
-  // 先删需求再删工单（外键方向：Requirement.workOrderId → WorkOrder.id）
+  // 先删子表再删主表（外键方向：Requirement.workOrderId → WorkOrder.id；
+  // MeetingAttachment.meetingId → Meeting.id）。附件虽是 Cascade，显式删更直观。
+  // reminder 无外键，位置随意，一并清掉以免演示数据里混进真实提醒。
   await prisma.requirement.deleteMany({});
   await prisma.workOrder.deleteMany({});
+  await prisma.meetingAttachment.deleteMany({});
+  await prisma.meeting.deleteMany({});
+  await prisma.reminder.deleteMany({});
 
   // ---- 工单 ----
   const wo1 = await prisma.workOrder.create({
