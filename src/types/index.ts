@@ -51,6 +51,16 @@ export type RequirementNode = (typeof NODE_OPTIONS)[number];
 export const SUBMITTER_OPTIONS = ["黄傲", "陈婷婷"] as const;
 
 /**
+ * 工作提醒的「提醒人」
+ * 取值与 SUBMITTER_OPTIONS 相同（同一个部门的两个人），但**各自独立一份**：
+ * 「提交人」是**谁登记了这条记录**，「提醒人」是**这条提醒要提醒谁**，语义不同，
+ * 日后两份名单可能分化（例如提醒人扩到全员、提交人仍只有登记员）。
+ * 合并成一份会在分化那天被迫改成结构性改动。
+ */
+export const REMINDEE_OPTIONS = ["黄傲", "陈婷婷"] as const;
+export type RemindeeValue = (typeof REMINDEE_OPTIONS)[number];
+
+/**
  * 是 / 否 布尔下拉选项（「是否加急」「是否发版」共用）
  * 注意：值是 boolean 而非字符串，别与上面的字符串枚举混用
  */
@@ -202,6 +212,22 @@ export interface Meeting {
   /** 会议内容 */
   content?: string;
   attachments: MeetingAttachment[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ---------- 工作提醒 ----------
+
+export interface Reminder {
+  id: string;
+  /** 提醒日期（日历日 YYYY-MM-DD，表单默认今天） */
+  date: string;
+  /** 提醒人（REMINDEE_OPTIONS 之一；必填） */
+  remindee: string;
+  /** 提醒内容（必填） */
+  content: string;
+  /** 是否已完成 */
+  isDone: boolean;
   createdAt: string;
   updatedAt: string;
 }
