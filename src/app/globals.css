@@ -71,3 +71,10 @@ body {
   .ant-select-selection-placeholder {
   padding-inline: 16px;
 }
+
+/* 工作提醒：日期 ≤ 今天且未完成 → 整行文字标红。
+   勾选框与「编辑/删除」链接按钮有各自的配色（antd 给它们发了具体颜色），
+   不参与 color 继承，因此保持原样 —— 这是期望的行为。 */
+.reminder-row-overdue > td {
+  color: #ff4d4f;
+}
