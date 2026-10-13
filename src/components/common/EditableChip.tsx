@@ -12,6 +12,8 @@ import { useEffect, useRef, useState } from "react";
 import { DownOutlined } from "@ant-design/icons";
 import { Dropdown, type MenuProps } from "antd";
 
+import { MOSS } from "@/lib/theme";
+
 export interface ChipOption<V extends string | boolean> {
   label: string;
   value: V;
@@ -21,8 +23,17 @@ interface EditableChipProps<V extends string | boolean> {
   value: V;
   options: ChipOption<V>[];
   onChange: (value: V) => void;
-  /** 该字段当前为待提交状态时，在文字右缘/三角前展示橙色小点 */
+  /** 待提交态：整格铺强调色浅底 + 文字加粗 + 三角左侧一个小方点 */
   dirty?: boolean;
+  /** 值为空时的占位（如「—」）。空值的格子若什么都不显示，用户看不出这里能点 */
+  placeholder?: string;
+  /**
+   * 布尔字段为正（true）时的语义色。**只给本身即「例外」的列用** ——
+   * 如「是否加急」（danger）、「是否发版」（accent）。
+   * 不要给普通的是/否列上色：本方向里颜色是稀缺资源，
+   * 一旦每列都着色，加急就淹没在一排彩色里，等于没有颜色。
+   */
+  tone?: "danger" | "accent";
   /** 兼容保留：外部曾按值给色，本期改为与字段一致的普通文字色，忽略该参数 */
   colorOf?: (value: V) => string | undefined;
 }
@@ -32,6 +43,8 @@ export default function EditableChip<V extends string | boolean>({
   options,
   onChange,
   dirty,
+  placeholder,
+  tone,
 }: EditableChipProps<V>) {
   const [open, setOpen] = useState(false);
   // 撑满整格：测量所在 td 的左右 padding，用负 margin 抵消，使三角真正贴格子最右、整格可点
@@ -56,6 +69,16 @@ export default function EditableChip<V extends string | boolean>({
 
   const current = options.find((o) => o.value === value);
   const label = current ? current.label : String(value);
+  // 空值（未选/未登记）时显示占位并退到装饰灰：格子仍看得见是「一格」，而不是一片空白
+  const isEmpty = label === "";
+  // 文字色优先级：空值 > 语义色 > 常态
+  const textColor = isEmpty
+    ? MOSS.ornament
+    : tone === "danger" && value === true
+      ? MOSS.danger
+      : tone === "accent" && value === true
+        ? MOSS.accentInk
+        : MOSS.ink;
 
   const items: MenuProps["items"] = options.map((opt) => ({
     key: String(opt.value),
@@ -110,11 +133,14 @@ export default function EditableChip<V extends string | boolean>({
           boxSizing: "border-box",
           transition: "background-color .15s",
         }}
-        className="ec-chip-trigger"
-        title="点击选择"
+        className={`ec-chip-trigger${dirty ? " is-dirty" : ""}${
+          open ? " is-open" : ""
+        }`}
+        title={dirty ? "已修改，尚未提交" : "点击选择"}
       >
-        {/* 值文本：占满并水平居中（两侧预留空间以免与三角/橙点重叠） */}
+        {/* 值文本：占满并水平居中（两侧预留空间以免与三角/圆点重叠） */}
         <span
+          className="ec-chip-val"
           style={{
             width: "100%",
             padding: "0 22px",
@@ -123,29 +149,31 @@ export default function EditableChip<V extends string | boolean>({
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
-            color: "rgba(0, 0, 0, 0.88)",
-            fontSize: 14,
+            color: textColor,
+            fontSize: 13,
           }}
         >
-          {label}
+          {isEmpty ? placeholder ?? "" : label}
         </span>
-        {/* 待提交橙点：贴近三角左侧，常驻（不影响文字居中） */}
+        {/* 待提交标记：贴近三角左侧的小方点，常驻（不影响文字居中）。
+            改方点是因为圆点在密表里和系统图标、状态点混为一片；
+            方块在中文行里不与任何字符同形。 */}
         {dirty ? (
           <span
             style={{
               position: "absolute",
               right: 18,
               top: "50%",
-              width: 6,
-              height: 6,
-              borderRadius: "50%",
-              background: "#fa8c16",
+              width: 5,
+              height: 5,
+              background: MOSS.accentInk,
               transform: "translateY(-50%)",
             }}
           />
         ) : null}
         {/* 小三角：绝对定位贴格子最右侧 */}
         <span
+          className="ec-chip-tri"
           style={{
             position: "absolute",
             right: 4,
@@ -153,11 +181,8 @@ export default function EditableChip<V extends string | boolean>({
             display: "inline-flex",
             alignItems: "center",
             justifyContent: "center",
-            color: "rgba(0, 0, 0, 0.45)",
-            transform: open
-              ? "translateY(-50%) rotate(180deg)"
-              : "translateY(-50%) rotate(0deg)",
-            transition: "transform .15s",
+            color: MOSS.ornament,
+            transform: "translateY(-50%)",
           }}
         >
           <DownOutlined style={{ fontSize: 10 }} />

@@ -37,6 +37,8 @@ import { Button, Table } from "antd";
 import { ReloadOutlined } from "@ant-design/icons";
 import type { ColumnType, ColumnsType, TableProps } from "antd/es/table";
 
+import { MOSS } from "@/lib/theme";
+
 type RecordTypeOf = object;
 
 /** 每页条数可选档位。必须包含默认值 10，否则 antd 的 Select 无法高亮当前项 */
@@ -446,11 +448,14 @@ export default function ProTable<RecordType extends RecordTypeOf>({
   return (
     <>
       {showResetLayout && (
+        // 只在用户真的改过列布局时出现。
+        // 它不是常规操作 —— 是「我调乱了，怎么回去」的出口，
+        // 所以：贴在表格右上、字号小、文字按钮、退到次要灰，不占工具行的位置。
         <div
           style={{
             display: "flex",
             justifyContent: "flex-end",
-            marginBottom: 8,
+            padding: "10px 14px 0",
           }}
         >
           <Button
@@ -458,7 +463,7 @@ export default function ProTable<RecordType extends RecordTypeOf>({
             type="text"
             icon={<ReloadOutlined />}
             onClick={handleResetLayout}
-            style={{ color: "#999" }}
+            style={{ color: MOSS.ink2, fontSize: 12 }}
           >
             还原默认列布局
           </Button>
