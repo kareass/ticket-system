@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { Button, Layout, Menu } from "antd";
 import {
   AppstoreOutlined,
+  BellOutlined,
   FileTextOutlined,
   HomeOutlined,
   MenuFoldOutlined,
@@ -35,6 +36,11 @@ const menuItems = [
     key: "/meetings",
     icon: <ScheduleOutlined />,
     label: <Link href="/meetings">会议纪要</Link>,
+  },
+  {
+    key: "/reminders",
+    icon: <BellOutlined />,
+    label: <Link href="/reminders">工作提醒</Link>,
   },
 ];
 

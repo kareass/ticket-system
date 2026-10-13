@@ -1,18 +1,21 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useMemo } from "react";
 import Link from "next/link";
 import { Card, Col, Row, Typography } from "antd";
 import {
+  BellOutlined,
   FileTextOutlined,
   AppstoreOutlined,
   CarryOutOutlined,
   ScheduleOutlined,
 } from "@ant-design/icons";
+import { useAppStore } from "@/store/store";
 
 const { Title, Paragraph } = Typography;
 
-const featureCards = [
+/** 前三张卡片是纯静态的，与后端无关 */
+const staticCards = [
   {
     title: "工单管理",
     desc: "登记、追踪部门内的工作工单，支持检索、筛选与转为需求。",
@@ -34,6 +37,40 @@ const featureCards = [
 ];
 
 export default function HomePage() {
+  const reminders = useAppStore((s) => s.reminders);
+  const remindersLoaded = useAppStore((s) => s.remindersLoaded);
+  const loadReminders = useAppStore((s) => s.loadReminders);
+
+  // 走 store 的「已加载」缓存标记，页面来回切换不会重复请求。
+  // 失败**不弹提示**：首页卡片只是锦上添花，接口抖动时退回静态文案即可，
+  // 不该一进首页就甩一个错误提示给用户。
+  useEffect(() => {
+    void loadReminders().catch(() => undefined);
+  }, [loadReminders]);
+
+  const undoneCount = useMemo(
+    () => reminders.filter((r) => !r.isDone).length,
+    [reminders],
+  );
+
+  const featureCards = useMemo(
+    () => [
+      ...staticCards,
+      {
+        title: "工作提醒",
+        // ⚠️ remindersLoaded 为 false 时显示普通文案，**不要**先显示「未完成 0 条」
+        // 再跳成「未完成 3 条」—— 那是难看的闪一帧（spec §11.5 已记录这个风险）。
+        desc:
+          remindersLoaded && undoneCount > 0
+            ? `登记待办提醒，到日子一眼看到。当前有 ${undoneCount} 条未完成。`
+            : "登记待办提醒，到日子一眼看到。",
+        href: "/reminders",
+        icon: <BellOutlined style={{ fontSize: 40, color: "#eb2f96" }} />,
+      },
+    ],
+    [remindersLoaded, undoneCount],
+  );
+
   return (
     <div>
       <Card style={{ marginBottom: 24 }}>
@@ -47,7 +84,7 @@ export default function HomePage() {
       </Card>
 
       <Row gutter={[24, 24]}>
-        {/* 一行两个：工单/需求在第一行，后续新增功能自动落到第二行 */}
+        {/* 一行两个：工单/需求在第一行，会议纪要/工作提醒在第二行 */}
         {featureCards.map((card) => (
           <Col xs={24} md={12} key={card.href}>
             <Link href={card.href}>
