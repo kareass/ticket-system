@@ -85,7 +85,7 @@ console.log("== 工单 CRUD ==");
     date: WO_DATE,
     title: `WO-A ${TAG}`,
     content: "冒烟：工单A",
-    submittedBy: "黄傲",
+    submittedBy: "\u9ec4\u50b2",
   });
   ok(r.status === 201, "创建工单 → 201", `status=${r.status}`);
   woA = r.data && r.data.id;
@@ -93,7 +93,7 @@ console.log("== 工单 CRUD ==");
   ok(r.data.date === WO_DATE, "date 原样返回(YYYY-MM-DD)", r.data.date);
   ok(r.data.system === "WMS" && r.data.status === "新建", "默认 system=WMS/status=新建");
   ok(r.data.isConvertToRequirement === false, "默认 isConvertToRequirement=false");
-  ok(r.data.submittedBy === "黄傲", "submittedBy 回读一致", String(r.data.submittedBy));
+  ok(r.data.submittedBy === "\u9ec4\u50b2", "submittedBy 回读一致", String(r.data.submittedBy));
   ok(isDateStr(r.data.createdAt.slice(0, 10)), "createdAt 为合法时间");
 }
 // 4. 列表按 keyword 命中
@@ -190,17 +190,17 @@ const RID_B = `R-${YEAR}-SM${TAG}b`;
 
 // 8. 需求ID 选填：不带编号也能建（原为 400）
 {
-  const r = await req("POST", "/api/requirements", { date: WO_DATE, submittedBy: "黄傲" });
+  const r = await req("POST", "/api/requirements", { date: WO_DATE, submittedBy: "\u9ec4\u50b2" });
   ok(r.status === 201, "创建需求不带 requirementId → 201", `status=${r.status}`);
   ok(r.data.requirementId === undefined, "无编号需求回读 requirementId 为 undefined", String(r.data.requirementId));
-  ok(r.data.submittedBy === "黄傲", "无编号需求 submittedBy 回读一致", String(r.data.submittedBy));
+  ok(r.data.submittedBy === "\u9ec4\u50b2", "无编号需求 submittedBy 回读一致", String(r.data.submittedBy));
   reqNoId = r.data && r.data.id;
 }
 // 8b. 连续第二条无编号需求也能建 —— 锁住「唯一索引只允许一条空串」那个坑
 {
-  const r = await req("POST", "/api/requirements", { date: WO_DATE, submittedBy: "陈婷婷" });
+  const r = await req("POST", "/api/requirements", { date: WO_DATE, submittedBy: "\u9648\u5a77\u5a77" });
   ok(r.status === 201, "第二条无编号需求同样 → 201（回归：空串未伪装成撞号）", `status=${r.status}`);
-  ok(r.data.submittedBy === "陈婷婷", "第二条 submittedBy 回读一致", String(r.data.submittedBy));
+  ok(r.data.submittedBy === "\u9648\u5a77\u5a77", "第二条 submittedBy 回读一致", String(r.data.submittedBy));
   if (r.data && r.data.id) await req("DELETE", `/api/requirements/${r.data.id}`);
 }
 // 9. 正常创建 → 201 + 开发时长自算(>0)
@@ -212,7 +212,7 @@ const RID_B = `R-${YEAR}-SM${TAG}b`;
     system: "WMS",
     currentNode: "测试中",
     isUrgent: true,
-    submittedBy: "黄傲",
+    submittedBy: "\u9ec4\u50b2",
     developmentDays: 999, // 服务端应忽略重算
   });
   ok(r.status === 201, "创建需求 → 201", `status=${r.status}`);
@@ -221,7 +221,7 @@ const RID_B = `R-${YEAR}-SM${TAG}b`;
   ok(r.data.currentNode === "测试中" && r.data.isUrgent === true, "节点/加急写入正确");
   ok(typeof r.data.developmentDays === "number" && r.data.developmentDays > 0, "developmentDays 服务端重算(>0)", String(r.data.developmentDays));
   ok(r.data.developmentDays !== 999, "忽略提交的 developmentDays");
-  ok(r.data.submittedBy === "黄傲", "需求 submittedBy 回读一致", String(r.data.submittedBy));
+  ok(r.data.submittedBy === "\u9ec4\u50b2", "需求 submittedBy 回读一致", String(r.data.submittedBy));
 }
 // 9d. 清空需求编号 → 200，回读为 undefined
 {
@@ -248,7 +248,7 @@ const RID_B = `R-${YEAR}-SM${TAG}b`;
 }
 // 10. requirementId 撞号 → 409
 {
-  const r = await req("POST", "/api/requirements", { date: WO_DATE, requirementId: RID_A, submittedBy: "黄傲" });
+  const r = await req("POST", "/api/requirements", { date: WO_DATE, requirementId: RID_A, submittedBy: "\u9ec4\u50b2" });
   ok(r.status === 409, "重复 requirementId → 409", `status=${r.status}`);
 }
 // 11. 列表按 currentNode 过滤
@@ -269,7 +269,7 @@ const RID_AUTO = `R-${YEAR}-AUTO${TAG}`;
     isConvertToRequirement: true,
     requirementId: RID_AUTO,
     requirementContent: "由工单C同步的需求内容",
-    submittedBy: "黄傲",
+    submittedBy: "\u9ec4\u50b2",
   });
   ok(r.status === 201, "建单即转需求（带需求ID）→ 201", `status=${r.status}`);
   woC = r.data && r.data.id;
@@ -284,7 +284,7 @@ const RID_AUTO = `R-${YEAR}-AUTO${TAG}`;
   ok(auto.system === "ERP" && auto.currentNode === "方案中", "系统同步自工单 / 节点默认方案中");
   ok(auto.workOrderId === woC, "需求回指来源工单");
   ok(typeof auto.developmentDays === "number" && auto.developmentDays > 0, "自动生成需求的开发时长已算");
-  ok(auto.submittedBy === "黄傲", "自动建需求 submittedBy 继承自工单", String(auto.submittedBy));
+  ok(auto.submittedBy === "\u9ec4\u50b2", "自动建需求 submittedBy 继承自工单", String(auto.submittedBy));
 }
 // 11b. 清空来源工单需求的编号 → 需求侧清空，工单侧编号保留
 {
@@ -303,7 +303,7 @@ const RID_AUTO = `R-${YEAR}-AUTO${TAG}`;
     content: "冒烟：不填需求内容",
     isConvertToRequirement: true,
     requirementId: RID_AUTO_F,
-    submittedBy: "陈婷婷",
+    submittedBy: "\u9648\u5a77\u5a77",
   });
   ok(r.status === 201, "建单即转需求（不给需求内容）→ 201", `status=${r.status}`);
   woF = r.data && r.data.id;
@@ -316,7 +316,7 @@ const RID_AUTO = `R-${YEAR}-AUTO${TAG}`;
     `content=${JSON.stringify(auto.content)}`,
   );
   ok(auto.title === `WO-F ${TAG}`, "标题仍同步自工单标题（不受内容为空影响）", String(auto.title));
-  ok(auto.submittedBy === "陈婷婷", "自动建需求 submittedBy 继承自工单（陈婷婷）", String(auto.submittedBy));
+  ok(auto.submittedBy === "\u9648\u5a77\u5a77", "自动建需求 submittedBy 继承自工单（陈婷婷）", String(auto.submittedBy));
 }
 // 13. 再次保存同一工单（需求ID 未变）→ 不重复创建需求
 {
@@ -352,7 +352,7 @@ console.log("== 需求链接来源工单 ==");
     requirementId: RID_B,
     title: `REQ-LINK ${TAG}`,
     workOrderId: woA,
-    submittedBy: "黄傲",
+    submittedBy: "\u9ec4\u50b2",
   });
   ok(r.status === 201 && r.data.workOrderId === woA, "带来源工单创建需求 → 201/链接正确", `status=${r.status}`);
   reqLink = r.data && r.data.id;
@@ -366,7 +366,7 @@ console.log("== 需求链接来源工单 ==");
     date: WO_DATE,
     requirementId: `R-${YEAR}-dup${TAG}`,
     workOrderId: woA,
-    submittedBy: "黄傲",
+    submittedBy: "\u9ec4\u50b2",
   });
   ok(r.status === 409, "同一来源工单再挂需求 → 409", `status=${r.status}`);
 }
@@ -402,7 +402,7 @@ console.log("== 工单转需求 convert ==");
     date: WO_DATE,
     title: `WO-D ${TAG}`,
     content: "冒烟：convert 前未填需求ID",
-    submittedBy: "黄傲",
+    submittedBy: "\u9ec4\u50b2",
   });
   woD = c.data && c.data.id;
 
@@ -421,12 +421,12 @@ console.log("== 工单转需求 convert ==");
   const RID_MODAL = `R-${YEAR}-CV2${TAG}`;
   const r = await req("POST", `/api/work-orders/${woD}/convert`, {
     requirementId: RID_MODAL,
-    submittedBy: "黄傲",
+    submittedBy: "\u9ec4\u50b2",
   });
   ok(r.status === 201, "convert 入参带需求ID → 201", `status=${r.status}`);
   reqConvD = r.data && r.data.requirement && r.data.requirement.id;
   ok(r.data.requirement.requirementId === RID_MODAL, "需求编号 = 入参需求ID", String(r.data.requirement.requirementId));
-  ok(r.data.requirement.submittedBy === "黄傲", "需求 submittedBy = 入参 submittedBy", String(r.data.requirement.submittedBy));
+  ok(r.data.requirement.submittedBy === "\u9ec4\u50b2", "需求 submittedBy = 入参 submittedBy", String(r.data.requirement.submittedBy));
   ok(r.data.workOrder.requirementId === RID_MODAL, "入参需求ID 回写到工单", String(r.data.workOrder.requirementId));
   ok(r.data.workOrder.isConvertToRequirement === true, "工单置转需求标记 true（入参路径）");
   ok(r.data.requirement.title === `WO-D ${TAG}`, "需求标题同步自工单标题（入参路径）");
@@ -445,18 +445,18 @@ console.log("== 工单转需求 convert ==");
     date: WO_DATE,
     title: `WO-G ${TAG}`,
     content: "冒烟：弹框带内容",
-    submittedBy: "陈婷婷",
+    submittedBy: "\u9648\u5a77\u5a77",
   });
   woG = c.data && c.data.id;
   const r = await req("POST", `/api/work-orders/${woG}/convert`, {
     requirementId: RID_MODAL_G,
     requirementContent: CONTENT_G,
-    submittedBy: "陈婷婷",
+    submittedBy: "\u9648\u5a77\u5a77",
   });
   ok(r.status === 201, "convert 入参带需求内容 → 201", `status=${r.status}`);
   reqConvG = r.data.requirement.id;
   ok(r.data.requirement.content === CONTENT_G, "需求内容 = 入参需求内容", String(r.data.requirement.content));
-  ok(r.data.requirement.submittedBy === "陈婷婷", "需求 submittedBy = 入参 submittedBy（陈婷婷）", String(r.data.requirement.submittedBy));
+  ok(r.data.requirement.submittedBy === "\u9648\u5a77\u5a77", "需求 submittedBy = 入参 submittedBy（陈婷婷）", String(r.data.requirement.submittedBy));
   ok(r.data.workOrder.requirementContent === CONTENT_G, "入参需求内容回写到工单", String(r.data.workOrder.requirementContent));
 }
 // 23. 兼容路径：入参未传时退回工单已登记的需求ID 与需求内容
@@ -467,7 +467,7 @@ console.log("== 工单转需求 convert ==");
     date: WO_DATE,
     title: `WO-B ${TAG}`,
     content: "冒烟：工单B",
-    submittedBy: "黄傲",
+    submittedBy: "\u9ec4\u50b2",
   });
   woB = c.data && c.data.id;
   const set = await req("PUT", `/api/work-orders/${woB}`, {
@@ -485,7 +485,7 @@ console.log("== 工单转需求 convert ==");
   ok(r.data.requirement.title === `WO-B ${TAG}`, "需求标题同步自工单标题");
   ok(r.data.requirement.currentNode === "方案中", "转换需求节点默认 方案中");
   ok(r.data.requirement.workOrderId === woB, "需求回指来源工单");
-  ok(r.data.requirement.submittedBy === "黄傲", "需求 submittedBy = 工单 submittedBy（未传时继承）", String(r.data.requirement.submittedBy));
+  ok(r.data.requirement.submittedBy === "\u9ec4\u50b2", "需求 submittedBy = 工单 submittedBy（未传时继承）", String(r.data.requirement.submittedBy));
   ok(r.data.workOrder.isConvertToRequirement === true, "工单置转需求标记 true");
 }
 // 24. 重复 convert → 409
@@ -500,7 +500,7 @@ console.log("== 工单转需求 convert ==");
     date: WO_DATE,
     title: `WO-E ${TAG}`,
     content: "冒烟：convert 撞号",
-    submittedBy: "黄傲",
+    submittedBy: "\u9ec4\u50b2",
   });
   woE = c.data && c.data.id;
   const r = await req("POST", `/api/work-orders/${woE}/convert`, { requirementId: RID_CONV });
@@ -514,7 +514,7 @@ console.log("== 工单转需求 convert ==");
   const r = await req("POST", `/api/work-orders/${woE}/convert`, {
     requirementId: RID_MODAL_E,
     requirementContent: "",
-    submittedBy: "黄傲",
+    submittedBy: "\u9ec4\u50b2",
   });
   ok(r.status === 201, "入参需求内容为空串 → 201（不可与原 409 混淆）", `status=${r.status}`);
   reqConvE = r.data.requirement.id;
@@ -523,7 +523,7 @@ console.log("== 工单转需求 convert ==");
     "入参需求内容为空串 → 需求内容为空（不回退标题）",
     `content=${JSON.stringify(r.data.requirement.content)}`,
   );
-  ok(r.data.requirement.submittedBy === "黄傲", "需求 submittedBy = 入参 submittedBy", String(r.data.requirement.submittedBy));
+  ok(r.data.requirement.submittedBy === "\u9ec4\u50b2", "需求 submittedBy = 入参 submittedBy", String(r.data.requirement.submittedBy));
   ok(r.data.workOrder.requirementId === RID_MODAL_E, "清空场景下编号仍正确回写工单");
 }
 // 25. convert 不存在工单 → 404
@@ -540,7 +540,7 @@ console.log("== 枚举扩展：工单状态 / 需求节点 / 提交人 ==");
     title: `WO-STATUS-PROC ${TAG}`,
     content: "枚举扩展：处理中",
     status: "处理中",
-    submittedBy: "黄傲",
+    submittedBy: "\u9ec4\u50b2",
   });
   ok(r.status === 201 && r.data.status === "处理中", "工单状态 处理中 → 201/回读", String(r.data.status));
   if (r.data && r.data.id) await req("DELETE", `/api/work-orders/${r.data.id}`);
@@ -552,7 +552,7 @@ console.log("== 枚举扩展：工单状态 / 需求节点 / 提交人 ==");
     title: `WO-STATUS-WAIT ${TAG}`,
     content: "枚举扩展：待优化",
     status: "待优化",
-    submittedBy: "黄傲",
+    submittedBy: "\u9ec4\u50b2",
   });
   ok(r.status === 201 && r.data.status === "待优化", "工单状态 待优化 → 201/回读", String(r.data.status));
   if (r.data && r.data.id) await req("DELETE", `/api/work-orders/${r.data.id}`);
@@ -564,7 +564,7 @@ console.log("== 枚举扩展：工单状态 / 需求节点 / 提交人 ==");
     requirementId: `R-${YEAR}-NODE${TAG}`,
     title: "枚举扩展：退回",
     currentNode: "退回",
-    submittedBy: "黄傲",
+    submittedBy: "\u9ec4\u50b2",
   });
   ok(r.status === 201 && r.data.currentNode === "退回", "需求节点 退回 → 201/回读", String(r.data.currentNode));
   if (r.data && r.data.id) await req("DELETE", `/api/requirements/${r.data.id}`);
@@ -593,9 +593,9 @@ console.log("== 枚举扩展：工单状态 / 需求节点 / 提交人 ==");
     date: WO_DATE,
     title: `WO-SUB-CTT ${TAG}`,
     content: "提交人陈婷婷",
-    submittedBy: "陈婷婷",
+    submittedBy: "\u9648\u5a77\u5a77",
   });
-  ok(r.status === 201 && r.data.submittedBy === "陈婷婷", "工单 submittedBy 陈婷婷 → 201/回读", String(r.data.submittedBy));
+  ok(r.status === 201 && r.data.submittedBy === "\u9648\u5a77\u5a77", "工单 submittedBy 陈婷婷 → 201/回读", String(r.data.submittedBy));
   if (r.data && r.data.id) await req("DELETE", `/api/work-orders/${r.data.id}`);
 }
 // 39. 提交人取值校验：枚举外 → 400
@@ -628,12 +628,12 @@ let woSubMod;
     date: WO_DATE,
     title: `WO-SUBMOD ${TAG}`,
     content: "提交人修改 / 清空 / 历史兼容",
-    submittedBy: "黄傲",
+    submittedBy: "\u9ec4\u50b2",
   });
   woSubMod = c.data && c.data.id;
   ok(c.status === 201, "准备工单（提交人修改）→ 201", `status=${c.status}`);
-  const r = await req("PUT", `/api/work-orders/${woSubMod}`, { submittedBy: "陈婷婷" });
-  ok(r.status === 200 && r.data.submittedBy === "陈婷婷", "工单 PUT submittedBy 改名 → 200/回读", String(r.data.submittedBy));
+  const r = await req("PUT", `/api/work-orders/${woSubMod}`, { submittedBy: "\u9648\u5a77\u5a77" });
+  ok(r.status === 200 && r.data.submittedBy === "\u9648\u5a77\u5a77", "工单 PUT submittedBy 改名 → 200/回读", String(r.data.submittedBy));
 }
 // 42. PUT 提交人显式清空 → 200，回读 undefined
 {
@@ -653,31 +653,31 @@ let woSubMod;
     date: WO_DATE,
     title: `WO-INH ${TAG}`,
     content: "convert 提交人继承",
-    submittedBy: "黄傲",
+    submittedBy: "\u9ec4\u50b2",
   });
   const woInh = c.data && c.data.id;
   ok(c.status === 201, "准备工单（黄傲）→ 201", `status=${c.status}`);
   const r = await req("POST", `/api/work-orders/${woInh}/convert`, {
     requirementId: `R-${YEAR}-INH${TAG}`,
   });
-  ok(r.status === 201 && r.data.requirement.submittedBy === "黄傲", "convert 提交人继承自工单（黄傲）→ 201/回读", String(r.data.requirement.submittedBy));
+  ok(r.status === 201 && r.data.requirement.submittedBy === "\u9ec4\u50b2", "convert 提交人继承自工单（黄傲）→ 201/回读", String(r.data.requirement.submittedBy));
   if (r.data && r.data.requirement && r.data.requirement.id) await req("DELETE", `/api/requirements/${r.data.requirement.id}`);
   if (woInh) await req("DELETE", `/api/work-orders/${woInh}`);
 }
-// 45. convert 提交人覆写：入参 陈婷婷 → 需求 陈婷婷（覆盖工单的黄傲）
+// 45. convert 提交人覆写：入参 陈婷婷 → 需求 \u9648\u5a77\u5a77（覆盖工单的黄傲）
 {
   const c = await req("POST", "/api/work-orders", {
     date: WO_DATE,
     title: `WO-OVR ${TAG}`,
     content: "convert 提交人覆写",
-    submittedBy: "黄傲",
+    submittedBy: "\u9ec4\u50b2",
   });
   const woOvr = c.data && c.data.id;
   const r = await req("POST", `/api/work-orders/${woOvr}/convert`, {
     requirementId: `R-${YEAR}-OVR${TAG}`,
-    submittedBy: "陈婷婷",
+    submittedBy: "\u9648\u5a77\u5a77",
   });
-  ok(r.status === 201 && r.data.requirement.submittedBy === "陈婷婷", "convert 入参 submittedBy 覆写工单 → 201/回读", String(r.data.requirement.submittedBy));
+  ok(r.status === 201 && r.data.requirement.submittedBy === "\u9648\u5a77\u5a77", "convert 入参 submittedBy 覆写工单 → 201/回读", String(r.data.requirement.submittedBy));
   if (r.data && r.data.requirement && r.data.requirement.id) await req("DELETE", `/api/requirements/${r.data.requirement.id}`);
   if (woOvr) await req("DELETE", `/api/work-orders/${woOvr}`);
 }
@@ -687,7 +687,7 @@ let woSubMod;
     date: WO_DATE,
     title: `WO-INVX ${TAG}`,
     content: "convert 提交人非法",
-    submittedBy: "黄傲",
+    submittedBy: "\u9ec4\u50b2",
   });
   const woInvx = c.data && c.data.id;
   const r = await req("POST", `/api/work-orders/${woInvx}/convert`, {
@@ -705,7 +705,7 @@ let woSubMod;
     date: WO_DATE,
     title: `WO-HIST ${TAG}`,
     content: "历史工单（无提交人）转需求",
-    submittedBy: "黄傲",
+    submittedBy: "\u9ec4\u50b2",
   });
   const woHist = c.data && c.data.id;
   // 显式清空 submittedBy → 工单回到「历史状态」（DB 中为 NULL）
@@ -724,12 +724,12 @@ let woSubMod;
     date: WO_DATE,
     title: `WO-FILTER-HAO ${TAG}`,
     content: "筛选：黄傲",
-    submittedBy: "黄傲",
+    submittedBy: "\u9ec4\u50b2",
   });
   const woFilterHao = c.data && c.data.id;
-  const r = await req("GET", `/api/work-orders?submittedBy=${encodeURIComponent("黄傲")}`);
+  const r = await req("GET", `/api/work-orders?submittedBy=${encodeURIComponent("\u9ec4\u50b2")}`);
   const list = Array.isArray(r.data) ? r.data : [];
-  ok(r.status === 200 && list.length >= 1 && list.every((w) => w.submittedBy === "黄傲"), "工单 ?submittedBy=黄傲 → 全是黄傲", `count=${list.length}`);
+  ok(r.status === 200 && list.length >= 1 && list.every((w) => w.submittedBy === "\u9ec4\u50b2"), "工单 ?submittedBy=黄傲 → 全是黄傲", `count=${list.length}`);
   if (woFilterHao) await req("DELETE", `/api/work-orders/${woFilterHao}`);
 }
 // 49. 提交人筛选（GET）：工单 ?submittedBy=陈婷婷 命中新建的；不含 黄傲
@@ -738,14 +738,14 @@ let woSubMod;
     date: WO_DATE,
     title: `WO-FILTER-CT ${TAG}`,
     content: "筛选：陈婷婷",
-    submittedBy: "陈婷婷",
+    submittedBy: "\u9648\u5a77\u5a77",
   });
   const woFilterCt = c.data && c.data.id;
-  const r = await req("GET", `/api/work-orders?submittedBy=${encodeURIComponent("陈婷婷")}`);
+  const r = await req("GET", `/api/work-orders?submittedBy=${encodeURIComponent("\u9648\u5a77\u5a77")}`);
   const list = Array.isArray(r.data) ? r.data : [];
-  ok(r.status === 200 && list.length >= 1 && list.every((w) => w.submittedBy === "陈婷婷"), "工单 ?submittedBy=陈婷婷 → 全是陈婷婷", `count=${list.length}`);
+  ok(r.status === 200 && list.length >= 1 && list.every((w) => w.submittedBy === "\u9648\u5a77\u5a77"), "工单 ?submittedBy=陈婷婷 → 全是陈婷婷", `count=${list.length}`);
   // 跨提交人隔离：陈婷婷筛选不应包含黄傲
-  ok(!list.some((w) => w.submittedBy === "黄傲"), "工单 提交人筛选互斥：陈婷婷不含黄傲");
+  ok(!list.some((w) => w.submittedBy === "\u9ec4\u50b2"), "工单 提交人筛选互斥：陈婷婷不含黄傲");
   if (woFilterCt) await req("DELETE", `/api/work-orders/${woFilterCt}`);
 }
 // 50. 提交人筛选（GET）：枚举外的值视作不过滤（不会 400）
@@ -759,12 +759,12 @@ let woSubMod;
     date: WO_DATE,
     requirementId: `R-${YEAR}-FLH${TAG}`,
     title: "筛选：黄傲",
-    submittedBy: "黄傲",
+    submittedBy: "\u9ec4\u50b2",
   });
   const reqFilterHao = c.data && c.data.id;
-  const r = await req("GET", `/api/requirements?submittedBy=${encodeURIComponent("黄傲")}`);
+  const r = await req("GET", `/api/requirements?submittedBy=${encodeURIComponent("\u9ec4\u50b2")}`);
   const list = Array.isArray(r.data) ? r.data : [];
-  ok(r.status === 200 && list.length >= 1 && list.every((w) => w.submittedBy === "黄傲"), "需求 ?submittedBy=黄傲 → 全是黄傲", `count=${list.length}`);
+  ok(r.status === 200 && list.length >= 1 && list.every((w) => w.submittedBy === "\u9ec4\u50b2"), "需求 ?submittedBy=黄傲 → 全是黄傲", `count=${list.length}`);
   if (reqFilterHao) await req("DELETE", `/api/requirements/${reqFilterHao}`);
 }
 
@@ -1060,6 +1060,207 @@ try {
   for (const id of createdAttIds) {
     await req("DELETE", `/api/attachments/${id}`).catch(() => undefined);
   }
+}
+
+console.log("\n=== 工作提醒 CRUD ===");
+
+// remindee 只有中文取值。这里的中文写在 UTF-8 源码里（不是命令行），不经过 Windows
+// 控制台的 GBK 转换，因此是安全的 —— 危险的是「在命令行里敲中文」，不是「源码里的中文」。
+// 「黄傲」= \u9ec4\u50b2，「陈婷婷」= \u9648\u5a77\u5a77（转义写，避免任何环节的编码意外）
+const RM_REMINDEE_A = "\u9ec4\u50b2";
+const RM_REMINDEE_B = "\u9648\u5a77\u5a77";
+const RM_DATE_EARLY = "2026-01-05";
+const RM_DATE_LATE = "2026-12-31";
+const RM_CONTENT_A = `smoke-reminder-a-${TAG}`;
+const RM_CONTENT_B = `smoke-reminder-b-${TAG}`;
+
+const createdReminderIds = [];
+
+try {
+  // 1. 缺 content → 400
+  const rm1 = await req("POST", "/api/reminders", {
+    date: RM_DATE_EARLY,
+    remindee: RM_REMINDEE_A,
+  });
+  ok(rm1.status === 400, "建提醒缺 content → 400", `status=${rm1.status}`);
+
+  // 2. 缺 date → 400
+  const rm2 = await req("POST", "/api/reminders", {
+    remindee: RM_REMINDEE_A,
+    content: RM_CONTENT_A,
+  });
+  ok(rm2.status === 400, "建提醒缺 date → 400", `status=${rm2.status}`);
+
+  // 3. 缺 remindee → 400
+  const rm3 = await req("POST", "/api/reminders", {
+    date: RM_DATE_EARLY,
+    content: RM_CONTENT_A,
+  });
+  ok(rm3.status === 400, "建提醒缺 remindee → 400", `status=${rm3.status}`);
+
+  // 4. remindee 不在枚举内 → 400（用 ASCII 假名，不为造非法值引入编码风险）
+  const rm4 = await req("POST", "/api/reminders", {
+    date: RM_DATE_EARLY,
+    remindee: "nobody",
+    content: RM_CONTENT_A,
+  });
+  ok(rm4.status === 400, "建提醒 remindee 不在枚举内 → 400", `status=${rm4.status}`);
+
+  // 5. date 非法（2026-02-30 不存在）→ 400
+  const rm5 = await req("POST", "/api/reminders", {
+    date: "2026-02-30",
+    remindee: RM_REMINDEE_A,
+    content: RM_CONTENT_A,
+  });
+  ok(rm5.status === 400, "建提醒 date=2026-02-30（不存在的日历日）→ 400", `status=${rm5.status}`);
+
+  // 6. 创建成功 → 201，逐字段回读一致，且日期按日历日不偏一天
+  //    刻意先建「晚日期」再建「早日期」：若实现是按 createdAt 倒序，第 7 条会立刻抓到
+  const rmLate = await req("POST", "/api/reminders", {
+    date: RM_DATE_LATE,
+    remindee: RM_REMINDEE_B,
+    content: RM_CONTENT_B,
+  });
+  if (rmLate.data?.id) createdReminderIds.push(rmLate.data.id);
+  const rmEarly = await req("POST", "/api/reminders", {
+    date: RM_DATE_EARLY,
+    remindee: RM_REMINDEE_A,
+    content: RM_CONTENT_A,
+  });
+  if (rmEarly.data?.id) createdReminderIds.push(rmEarly.data.id);
+  ok(
+    rmEarly.status === 201 &&
+      rmEarly.data?.date === RM_DATE_EARLY &&
+      rmEarly.data?.remindee === RM_REMINDEE_A &&
+      rmEarly.data?.content === RM_CONTENT_A &&
+      rmEarly.data?.isDone === false,
+    "建提醒 → 201，date/remindee/content/isDone 逐项回读一致且日期不偏一天",
+    JSON.stringify(rmEarly.data),
+  );
+
+  // 7. 列表按 date 升序（早日期在前）—— 全站唯一一个升序列表
+  const rmList = await req("GET", `/api/reminders?keyword=${TAG}`);
+  ok(
+    rmList.status === 200 &&
+      Array.isArray(rmList.data) &&
+      rmList.data.length === 2 &&
+      rmList.data[0].id === rmEarly.data?.id &&
+      rmList.data[1].id === rmLate.data?.id,
+    "提醒列表按 date 升序（早日期在前，不是 createdAt 倒序）",
+    JSON.stringify(rmList.data?.map?.((r) => r.date)),
+  );
+
+  // 8. PUT 只传 isDone → 200，且 remindee / content 未被牵连改动
+  const rmDone = await req("PUT", `/api/reminders/${rmEarly.data?.id}`, { isDone: true });
+  ok(
+    rmDone.status === 200 &&
+      rmDone.data?.isDone === true &&
+      rmDone.data?.remindee === RM_REMINDEE_A &&
+      rmDone.data?.content === RM_CONTENT_A,
+    "PUT 只传 isDone=true → 200，remindee/content 保持不变",
+    JSON.stringify(rmDone.data),
+  );
+
+  // 9. ?isDone=true 只返回已完成
+  const rmDoneList = await req("GET", `/api/reminders?isDone=true&keyword=${TAG}`);
+  ok(
+    rmDoneList.status === 200 &&
+      Array.isArray(rmDoneList.data) &&
+      rmDoneList.data.length === 1 &&
+      rmDoneList.data[0].id === rmEarly.data?.id,
+    "?isDone=true 只返回已完成",
+    JSON.stringify(rmDoneList.data?.map?.((r) => r.id)),
+  );
+
+  // 10. ?isDone=false 只返回未完成
+  const rmUndoneList = await req("GET", `/api/reminders?isDone=false&keyword=${TAG}`);
+  ok(
+    rmUndoneList.status === 200 &&
+      Array.isArray(rmUndoneList.data) &&
+      rmUndoneList.data.length === 1 &&
+      rmUndoneList.data[0].id === rmLate.data?.id,
+    "?isDone=false 只返回未完成",
+    JSON.stringify(rmUndoneList.data?.map?.((r) => r.id)),
+  );
+
+  // 11. ?remindee= 精确匹配（中文放 query，必须 encodeURIComponent）
+  const rmByPerson = await req(
+    "GET",
+    `/api/reminders?remindee=${encodeURIComponent(RM_REMINDEE_B)}&keyword=${TAG}`,
+  );
+  ok(
+    rmByPerson.status === 200 &&
+      Array.isArray(rmByPerson.data) &&
+      rmByPerson.data.length === 1 &&
+      rmByPerson.data[0].remindee === RM_REMINDEE_B,
+    "?remindee= 精确匹配提醒人",
+    JSON.stringify(rmByPerson.data?.map?.((r) => r.remindee)),
+  );
+
+  // 12. ?keyword= 子串匹配提醒内容
+  const rmByKeyword = await req("GET", `/api/reminders?keyword=reminder-a-${TAG}`);
+  ok(
+    rmByKeyword.status === 200 &&
+      Array.isArray(rmByKeyword.data) &&
+      rmByKeyword.data.length === 1 &&
+      rmByKeyword.data[0].content === RM_CONTENT_A,
+    "?keyword= 子串匹配提醒内容",
+    JSON.stringify(rmByKeyword.data?.map?.((r) => r.content)),
+  );
+
+  // 13. PUT content:"" → 400（必填字段不可清空）
+  const rmClearContent = await req("PUT", `/api/reminders/${rmLate.data?.id}`, {
+    content: "",
+  });
+  ok(rmClearContent.status === 400, "PUT content=\"\" → 400（必填不可清空）", `status=${rmClearContent.status}`);
+
+  // 14. PUT remindee:"" → 400（必填字段不可清空）
+  const rmClearPerson = await req("PUT", `/api/reminders/${rmLate.data?.id}`, {
+    remindee: "",
+  });
+  ok(rmClearPerson.status === 400, "PUT remindee=\"\" → 400（必填不可清空）", `status=${rmClearPerson.status}`);
+
+  // 15. PUT 不传 remindee / content → 二者均保持不变（「不传 = 不改」）
+  const rmDateOnly = await req("PUT", `/api/reminders/${rmLate.data?.id}`, {
+    date: "2026-11-11",
+  });
+  ok(
+    rmDateOnly.status === 200 &&
+      rmDateOnly.data?.date === "2026-11-11" &&
+      rmDateOnly.data?.remindee === RM_REMINDEE_B &&
+      rmDateOnly.data?.content === RM_CONTENT_B,
+    "PUT 只传 date → 200，未传的 remindee/content 保持不变",
+    JSON.stringify(rmDateOnly.data),
+  );
+
+  // 16. DELETE → 204；随后单查 → 404
+  const rmDel = await req("DELETE", `/api/reminders/${rmLate.data?.id}`);
+  const rmAfterDel = await req("GET", `/api/reminders/${rmLate.data?.id}`);
+  ok(
+    rmDel.status === 204 && rmAfterDel.status === 404,
+    "DELETE 提醒 → 204；随后单查 → 404",
+    `del=${rmDel.status} get=${rmAfterDel.status}`,
+  );
+  // 已删除，移出兜底清理列表
+  const rmIdx = createdReminderIds.indexOf(rmLate.data?.id);
+  if (rmIdx >= 0) createdReminderIds.splice(rmIdx, 1);
+} finally {
+  // 自清理：任何断言失败都不得在库里留残留
+  for (const id of createdReminderIds) {
+    await req("DELETE", `/api/reminders/${id}`).catch(() => undefined);
+  }
+}
+
+// 17. 自清理落到了实处：本轮建的提醒一条不剩
+{
+  const rmLeftover = await req("GET", `/api/reminders?keyword=${TAG}`);
+  ok(
+    rmLeftover.status === 200 &&
+      Array.isArray(rmLeftover.data) &&
+      rmLeftover.data.length === 0,
+    "自清理：冒烟结束后不残留工作提醒测试数据",
+    `leftover=${rmLeftover.data?.length}`,
+  );
 }
 
 console.log(failures === 0 ? "\n全部用例通过 ✅" : `\n${failures} 项失败 ❌`);
