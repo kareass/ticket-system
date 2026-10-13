@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Button,
-  Card,
   Checkbox,
   Input,
   message,
@@ -21,6 +20,7 @@ import { useAppStore } from "@/store/store";
 import { formatDate, today } from "@/lib/utils";
 import { toErrorMessage } from "@/lib/errors";
 import ProTable from "@/components/common/ProTable";
+import Surface from "@/components/common/Surface";
 import SortableHeader from "@/components/common/SortableHeader";
 import { createComparator, type SortState } from "@/lib/sortRows";
 
@@ -79,6 +79,17 @@ export default function ReminderListPage() {
     });
   }, [reminders, doneFilter, remindee, keyword]);
 
+  // 台头计数：统计**全部**提醒，不随筛选变化。
+  // 「已逾期」= 未完成 且 日期 ≤ 今天 —— 与下面整行标红用的是同一个判断，
+  // 抽成一处以免台头的数字和红行的数量对不上。
+  // date 是 "YYYY-MM-DD" 字符串，字典序比较即日期序，不必转 Date。
+  const stats = useMemo(() => {
+    const t = today();
+    const undone = reminders.filter((r) => !r.isDone).length;
+    const overdue = reminders.filter((r) => !r.isDone && r.date <= t).length;
+    return { undone, overdue };
+  }, [reminders]);
+
   // 双击列头：升序 → 降序 → 取消（回到接口给的 date 升序）
   const handleSortToggle = (field: keyof Reminder) => {
     setSort((prev) => {
@@ -125,7 +136,8 @@ export default function ReminderListPage() {
       dataIndex: "date",
       key: "date",
       width: 110,
-      render: (date: string) => formatDate(date),
+      // 日期是数字串，等宽才纵向对齐
+      render: (date: string) => <span className="mono">{formatDate(date)}</span>,
     },
     {
       title: "提醒人",
@@ -177,81 +189,109 @@ export default function ReminderListPage() {
   ];
 
   return (
-    <Card title="工作提醒">
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          flexWrap: "wrap",
-          gap: 12,
-          marginBottom: 16,
-        }}
-      >
-        <Space>
-          <Link href="/reminders/create">
-            <Button type="primary" icon={<PlusOutlined />}>
-              新建提醒
-            </Button>
-          </Link>
-        </Space>
-        <Space wrap>
-          <Button
-            icon={<ReloadOutlined />}
-            loading={loading}
-            onClick={() => {
-              void loadReminders(true).catch((e) =>
-                message.error(toErrorMessage(e)),
-              );
-            }}
-          >
-            刷新
-          </Button>
-          <Segmented<DoneFilter>
-            value={doneFilter}
-            onChange={(value) => setDoneFilter(value)}
-            options={[
-              { label: "未完成", value: "undone" },
-              { label: "全部", value: "all" },
-              { label: "已完成", value: "done" },
-            ]}
-          />
-          <Select<string>
-            allowClear
-            placeholder="按提醒人筛选"
-            style={{ width: 140 }}
-            options={remindeeOptions}
-            value={remindee}
-            onChange={(value) => setRemindee(value)}
-          />
-          <Input
-            allowClear
-            placeholder="按提醒内容搜索"
-            prefix={<SearchOutlined />}
-            style={{ width: 220 }}
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-          />
-        </Space>
-      </div>
+    <>
+      <Surface style={{ marginBottom: 20 }}>
+        {/* 台头：与工单/需求/会议同一套。「已逾期」计数是这页最该被一眼看到的东西 */}
+        <div className="page-head">
+          <h1>工作提醒</h1>
+          <div className="page-stats">
+            <div className="page-stat">
+              <b>{stats.undone}</b>
+              <span>未完成</span>
+            </div>
+            <div className="page-stat">
+              <b style={stats.overdue > 0 ? { color: "var(--danger)" } : undefined}>
+                {stats.overdue}
+              </b>
+              <span>已逾期</span>
+            </div>
+          </div>
+        </div>
 
-      <ProTable<Reminder>
-        rowKey="id"
-        columns={columns}
-        dataSource={sortedReminders}
-        loading={loading}
-        // 未完成 且 日期 ≤ 今天 → 整行红。
-        // date 是 "YYYY-MM-DD" 字符串，字典序比较即日期序，不必转 Date。
-        rowClassName={(r) =>
-          !r.isDone && r.date <= today() ? "reminder-row-overdue" : ""
-        }
-        // 操作列是 fixed: "right"，**不给 scroll.x 会让它错位**
-        scroll={{ x: 1000 }}
-        layoutStorageKey="reminders"
-        pagination={{
-          pageSize: 10,
-          showTotal: (total) => `共 ${total} 条`,
-        }}
-      />
-    </Card>
+        {/* 工具行：动作在左，筛选在右 */}
+        <div className="page-tools">
+          <Space>
+            <Link href="/reminders/create">
+              <Button type="primary" icon={<PlusOutlined />}>
+                新建提醒
+              </Button>
+            </Link>
+          </Space>
+          <div className="page-filters">
+            {/* 三态是这一页的主筛选，放最左；Segmented 自己已说明选项含义，
+                故只给一个不与之关联的视觉标签（关联不了 div，用 aria-label 兜语义） */}
+            <div className="field">
+              <span className="field-label">状态</span>
+              <Segmented<DoneFilter>
+                aria-label="按完成状态筛选"
+                value={doneFilter}
+                onChange={(value) => setDoneFilter(value)}
+                options={[
+                  { label: "未完成", value: "undone" },
+                  { label: "全部", value: "all" },
+                  { label: "已完成", value: "done" },
+                ]}
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="rmd-remindee">提醒人</label>
+              <Select<string>
+                id="rmd-remindee"
+                allowClear
+                placeholder="全部"
+                style={{ width: 130 }}
+                options={remindeeOptions}
+                value={remindee}
+                onChange={(value) => setRemindee(value)}
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="rmd-kw">搜索</label>
+              <Input
+                id="rmd-kw"
+                allowClear
+                placeholder="提醒内容"
+                prefix={<SearchOutlined />}
+                style={{ width: 200 }}
+                value={keyword}
+                onChange={(e) => setKeyword(e.target.value)}
+              />
+            </div>
+            <Button
+              icon={<ReloadOutlined />}
+              loading={loading}
+              onClick={() => {
+                void loadReminders(true).catch((e) =>
+                  message.error(toErrorMessage(e)),
+                );
+              }}
+            >
+              刷新
+            </Button>
+          </div>
+        </div>
+      </Surface>
+
+      <Surface padding={0}>
+        <ProTable<Reminder>
+          rowKey="id"
+          columns={columns}
+          dataSource={sortedReminders}
+          loading={loading}
+          // 未完成 且 日期 ≤ 今天 → 整行红。
+          // date 是 "YYYY-MM-DD" 字符串，字典序比较即日期序，不必转 Date。
+          rowClassName={(r) =>
+            !r.isDone && r.date <= today() ? "reminder-row-overdue" : ""
+          }
+          // 操作列是 fixed: "right"，**不给 scroll.x 会让它错位**
+          scroll={{ x: 1000 }}
+          layoutStorageKey="reminders"
+          pagination={{
+            pageSize: 10,
+            showTotal: (total) => `共 ${total} 条`,
+          }}
+        />
+      </Surface>
+    </>
   );
 }
