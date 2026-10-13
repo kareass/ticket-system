@@ -17,7 +17,7 @@
 //     会静默退回默认色（该表当前未被消费，见其定义处的说明）；
 //   - 无需数据库迁移：schema.prisma 中这些字段是普通 String 列，不是数据库枚举。
 //
-// ⚠️ 需求节点 NODE_OPTIONS 的五种取值写死在设计文档里，增删节点属于需求变更，
+// ⚠️ 需求节点 NODE_OPTIONS 的取值写死在设计文档里，增删节点属于需求变更，
 //    应先改设计文档再改这里；系统 SYSTEM_OPTIONS 在设计文档中未枚举，可直接增删。
 // ============================================================================
 
@@ -25,8 +25,14 @@
 export const SYSTEM_OPTIONS = ["WMS", "ERP", "TMS", "SCM", "追溯中心", "其他"] as const;
 export type SystemValue = (typeof SYSTEM_OPTIONS)[number];
 
-/** 工单状态（预留扩展，以设计文档为准：新建/已处理/已关闭） */
-export const WORK_ORDER_STATUS_OPTIONS = ["新建", "已处理", "已关闭"] as const;
+/** 工单状态（预留扩展，以设计文档为准：新建/已处理/已关闭/处理中/待优化） */
+export const WORK_ORDER_STATUS_OPTIONS = [
+  "新建",
+  "已处理",
+  "已关闭",
+  "处理中",
+  "待优化",
+] as const;
 export type WorkOrderStatus = (typeof WORK_ORDER_STATUS_OPTIONS)[number];
 
 /** 需求当前节点 */
@@ -37,8 +43,12 @@ export const NODE_OPTIONS = [
   "测试完毕",
   "已合并",
   "已发布",
+  "退回",
 ] as const;
 export type RequirementNode = (typeof NODE_OPTIONS)[number];
+
+/** 提交人（工单/需求共用；新记录必填，旧记录可空） */
+export const SUBMITTER_OPTIONS = ["黄傲", "陈婷婷"] as const;
 
 /**
  * 是 / 否 布尔下拉选项（「是否加急」「是否发版」共用）
@@ -76,6 +86,8 @@ export const WORK_ORDER_STATUS_COLORS: Record<WorkOrderStatus, string> = {
   新建: "gold",
   已处理: "success",
   已关闭: "default",
+  处理中: "processing",
+  待优化: "cyan",
 };
 
 /** 需求节点标签配色 */
@@ -86,6 +98,7 @@ export const NODE_COLORS: Record<RequirementNode, string> = {
   测试完毕: "geekblue",
   已合并: "cyan",
   已发布: "success",
+  退回: "error",
 };
 
 // ---------- 工单 WorkOrder ----------
@@ -109,6 +122,8 @@ export interface WorkOrder {
   remark?: string;
   /** 工单状态（预留） */
   status: WorkOrderStatus;
+  /** 提交人（新记录必填，旧记录可空） */
+  submittedBy?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -141,6 +156,8 @@ export interface Requirement {
   remark?: string;
   /** 来源工单内部主键（工单转需求时填充，一对一，设计文档=关联工单ID workOrderId） */
   workOrderId?: string;
+  /** 提交人（新记录必填，旧记录可空） */
+  submittedBy?: string;
   createdAt: string;
   updatedAt: string;
 }

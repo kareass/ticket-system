@@ -71,6 +71,8 @@ export default function EditWorkOrderPage() {
         requirementId: values.requirementId,
         requirementContent: values.requirementContent,
         remark: values.remark,
+        // 提交人：表单必填校验把关；后端 PUT 三态语义：未传不动 / 空串清空 / 非空改名
+        submittedBy: values.submittedBy,
       });
       message.success("工单已更新");
       router.push("/work-orders");

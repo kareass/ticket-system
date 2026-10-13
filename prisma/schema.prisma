@@ -31,7 +31,8 @@ model WorkOrder {
   requirementId        String? // 需求ID（业务编号，需唯一；留空则不允许转需求）
   requirementContent   String? // 需求内容（同步自工单标题，可手工修改）
   remark               String? // 备注
-  status               String   @default("新建") // 工单状态（新建/已处理/已关闭，预留扩展）
+  status               String   @default("新建") // 工单状态（新建/已处理/已关闭/处理中/待优化，预留扩展）
+  submittedBy          String? // 提交人（黄傲/陈婷婷；新记录必填，旧记录可空）
 
   // 一对一反向：工单转为需求后指向唯一 Requirement
   requirement Requirement?
@@ -51,7 +52,7 @@ model Requirement {
   content     String? // 需求内容
   system      String  @default("WMS") // 系统（必填，下拉框，默认 WMS）
   developmentDays Int? // 开发时长（天，业务自动计算：date→当前；若已发版则为 date→releaseDate）
-  currentNode String  @default("方案中") // 当前节点（方案中/开发中/测试中/已合并/已发布）
+  currentNode String  @default("方案中") // 当前节点（方案中/开发中/测试中/测试完毕/已合并/已发布/退回）
   isUrgent    Boolean @default(false) // 是否加急（下拉框是/否，默认否）
   isReleased  Boolean @default(false) // 是否发版
   releaseDate DateTime? // 发版时间（仅当 isReleased=true 时业务层必填）
@@ -60,6 +61,8 @@ model Requirement {
   // 一对一：工单转需求后回指来源工单（workOrderId 唯一 ⇒ 一工单至多一需求）
   workOrder   WorkOrder? @relation(fields: [workOrderId], references: [id])
   workOrderId String?    @unique
+
+  submittedBy String? // 提交人（黄傲/陈婷婷；新记录必填，旧记录可空）
 
   createdAt DateTime @default(now()) // 创建时间
   updatedAt DateTime @updatedAt // 更新时间

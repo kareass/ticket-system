@@ -71,6 +71,8 @@ export default function EditRequirementPage() {
         // 未发版时清空原发版时间（改为否时不应残留旧值；服务端亦会清空）
         releaseDate: values.isReleased ? values.releaseDate : undefined,
         remark: values.remark,
+        // 提交人：表单必填校验把关；后端 PUT 三态语义：未传不动 / 空串清空 / 非空改名
+        submittedBy: values.submittedBy,
       });
       message.success("需求已更新");
       router.push("/requirements");

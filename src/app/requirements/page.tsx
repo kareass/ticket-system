@@ -19,6 +19,7 @@ import type { Requirement, RequirementNode } from "@/types";
 import {
   NODE_COLORS,
   NODE_OPTIONS,
+  SUBMITTER_OPTIONS,
   SYSTEM_COLORS,
   SYSTEM_OPTIONS,
   YES_NO_OPTIONS,
@@ -39,6 +40,8 @@ import { useRowDrafts } from "@/lib/useRowDrafts";
 const nodeOptions = asSelectOptions(NODE_OPTIONS);
 // 系统选项：列表内联编辑用
 const systemOptions = asSelectOptions(SYSTEM_OPTIONS);
+// 提交人选项：列表内联编辑用（无配色，2 值默认 chip 色即可）
+const submitterOptions = asSelectOptions(SUBMITTER_OPTIONS);
 
 /**
  * 需求列表页
@@ -58,6 +61,7 @@ export default function RequirementListPage() {
 
   const [keyword, setKeyword] = useState("");
   const [node, setNode] = useState<RequirementNode | undefined>(undefined);
+  const [submitter, setSubmitter] = useState<string | undefined>(undefined);
   // 排序状态：null = 未排序，保持后端返回的 createdAt 倒序
   const [sort, setSort] = useState<SortState<Requirement> | null>(null);
 
@@ -70,7 +74,7 @@ export default function RequirementListPage() {
     void loadWorkOrders().catch((e) => message.error(toErrorMessage(e)));
   }, [loadRequirements, loadWorkOrders]);
 
-  // 前端过滤：需求ID或标题包含 + 当前节点相等
+  // 前端过滤：需求ID或标题包含 + 当前节点相等 + 提交人相等
   const filteredRequirements = useMemo(() => {
     const kw = keyword.trim().toLowerCase();
     return requirements.filter((req) => {
@@ -79,9 +83,11 @@ export default function RequirementListPage() {
         (req.requirementId ?? "").toLowerCase().includes(kw) ||
         (req.title ?? "").toLowerCase().includes(kw);
       const hitNode = !node || req.currentNode === node;
-      return hitText && hitNode;
+      // 提交人筛选：历史数据 submittedBy 为空时永远不命中（与 DB 一致）
+      const hitSubmitter = !submitter || req.submittedBy === submitter;
+      return hitText && hitNode && hitSubmitter;
     });
-  }, [requirements, keyword, node]);
+  }, [requirements, keyword, node, submitter]);
 
   // 双击列头：升序 → 降序 → 取消（回到默认的创建时间倒序）
   const handleSortToggle = (field: keyof Requirement) => {
@@ -180,6 +186,23 @@ export default function RequirementListPage() {
           />
         );
       },
+    },
+    {
+      // 提交人：黄傲 / 陈婷婷；历史数据为空时显示 -（可空字段）。三态语义走 PUT：未传不动 / 空串清空 / 非空改名
+      title: sortableTitle("提交人", "submittedBy"),
+      dataIndex: "submittedBy",
+      key: "submittedBy",
+      width: 110,
+      render: (submittedBy: string | undefined, record) => (
+        <EditableChip
+          value={submittedBy ?? ""}
+          options={submitterOptions}
+          dirty={drafts.isFieldDirty(record.id, "submittedBy")}
+          onChange={(val) =>
+            drafts.stage(record.id, { submittedBy: val } as Partial<Requirement>)
+          }
+        />
+      ),
     },
     {
       title: sortableTitle("开发时长(天)", "developmentDays"),
@@ -383,6 +406,14 @@ export default function RequirementListPage() {
             options={nodeOptions}
             value={node}
             onChange={(value) => setNode(value)}
+          />
+          <Select<string>
+            allowClear
+            placeholder="按提交人筛选"
+            style={{ width: 140 }}
+            options={submitterOptions}
+            value={submitter}
+            onChange={(value) => setSubmitter(value)}
           />
         </Space>
       </div>

@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## 权威来源
 
 `docs/四川物流工单系统-设计方案.md` 是**唯一权威设计文档**。代码与文档不一致时，**改代码去对齐文档，绝不反向修改文档**。
-文档中明确写了「预留扩展」的字段（如工单状态）可以增量扩展；明确列举了取值的（如需求节点五种）属于需求变更，应先改文档。
+文档中明确写了「预留扩展」的字段（如工单状态）可以增量扩展；明确列举了取值的（如需求节点）属于需求变更，应先改文档。
 
 ## 常用命令
 
@@ -14,7 +14,7 @@ npm run dev            # 开发模式（首次进入每个路由现场编译，1
 npm run build          # 生产构建
 npm run start          # 生产启动（日常使用请用生产模式，页面 6~300ms）
 npm run typecheck      # tsc --noEmit（提交前必跑）
-npm run api:smoke      # 后端接口冒烟，148 项断言（需服务已在 :3000 运行）
+npm run api:smoke      # 后端接口冒烟，181 项断言（需服务已在 :3000 运行）
 npm run check:env      # 环境检查清单（纯本地，不联网）
 npm run db:migrate     # prisma migrate deploy（建表）
 npm run db:seed        # 写入演示数据（会先清空现有数据）
@@ -22,7 +22,7 @@ npm run verify         # typecheck + build
 ```
 
 **没有单元测试框架**（无 jest/vitest），也没有「只跑某个用例」的开关 —— `api:smoke` 是唯一的自动化测试，
-每次全量跑 148 项。要加断言就直接往 `scripts/api-smoke.mjs` 里加，它自清理、可重复运行。
+每次全量跑 181 项。要加断言就直接往 `scripts/api-smoke.mjs` 里加，它自清理、可重复运行。
 
 ## 架构
 
@@ -50,7 +50,7 @@ npm run verify         # typecheck + build
   `{ params }: { params: { id: string } }`，不要 `await`。
 - `src/lib/server/helpers.ts` 是服务端共享工具的唯一入口：`readJson`、`apiError`、`asBool`、`asTrimmed`、
   `toDayUtc`、`recomputeDevDays`、`isPrismaUnique`、`ApiFailure`、`toWorkOrderJson` / `toRequirementJson`，
-  以及由 `src/types` 转发的枚举数组 `SYSTEMS` / `WORK_ORDER_STATUSES` / `NODES`（用于接口层 `includes` 校验）。
+  以及由 `src/types` 转发的枚举数组 `SYSTEMS` / `WORK_ORDER_STATUSES` / `NODES` / `SUBMITTERS`（用于接口层 `includes` 校验）。
 - **`asTrimmed` 的空值语义是关键**：非字符串 → `undefined`，字符串 → trim 后的值（**可能是 `""`**）。
   这正是「未传参」（`undefined`）与「显式清空」（`""`）能区分开的原因，改它前先看 `convert` 路由怎么用。
 - 事务内失败抛 `ApiFailure`，由路由的 catch 统一转成带 `details` 的标准错误响应。
@@ -131,6 +131,6 @@ npm run verify         # typecheck + build
 | `docs/部署指南.md` / `docs/内网部署方案.md` | 部署 |
 | `docs/测试报告-环节6.md` | 测试记录、性能数据、各轮验收反馈（F1–F7）与 Bug 记录 |
 
-改了接口/枚举/字段口径时，同步更新上面对应的文档 —— 各文档里都写明了断言数（148）等具体数字，容易漏。
+改了接口/枚举/字段口径时，同步更新上面对应的文档 —— 各文档里都写明了断言数（181）等具体数字，容易漏。
 
 `agents/*.md` 是构建期的角色定义（子会话提示词），不是本仓库的开发规范。

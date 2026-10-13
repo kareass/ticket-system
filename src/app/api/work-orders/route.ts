@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/server/db";
 import {
   ApiFailure,
+  SUBMITTERS,
   SYSTEMS,
   WORK_ORDER_STATUSES,
   apiError,
@@ -20,18 +21,22 @@ export const runtime = "nodejs";
 
 /**
  * GET /api/work-orders
- * 工单列表。可选过滤：?system=WMS&keyword=出库（keyword 匹配标题，忽略大小写）。
+ * 工单列表。可选过滤：?system=WMS&keyword=出库&submittedBy=黄傲
+ * （keyword 匹配标题，submittedBy 匹配提交人，忽略大小写）。
  * 按创建时间倒序返回（与前端「新建在顶」一致）。
  */
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const system = url.searchParams.get("system");
   const keyword = url.searchParams.get("keyword")?.trim();
+  const submittedBy = url.searchParams.get("submittedBy")?.trim();
 
   const where: Prisma.WorkOrderWhereInput = {
     // 仅在系统枚举内的值才参与过滤；非法/空值视为不过滤
     ...(system && SYSTEMS.includes(system) ? { system } : {}),
     ...(keyword ? { title: { contains: keyword } } : {}),
+    // 提交人同理：枚举外的值视为不过滤（与 system / status 同一规则）
+    ...(submittedBy && SUBMITTERS.includes(submittedBy) ? { submittedBy } : {}),
   };
 
   const rows = await prisma.workOrder.findMany({
@@ -85,6 +90,14 @@ export async function POST(req: Request) {
   const requirementId = asTrimmed(body.requirementId);
   const requirementContent = asTrimmed(body.requirementContent);
 
+  // 提交人：新记录必填（黄傲 / 陈婷婷），允许管理员在历史数据上留空 → 旧记录可空
+  const submittedBy = asTrimmed(body.submittedBy);
+  if (!submittedBy) {
+    errors.push("submittedBy 必填（黄傲 / 陈婷婷）。");
+  } else if (!SUBMITTERS.includes(submittedBy)) {
+    errors.push(`submittedBy 须为以下之一：${SUBMITTERS.join(" / ")}。`);
+  }
+
   // 「转需求」必须带需求ID（设计文档：需求ID必填）
   if (isConvertToRequirement === true && !requirementId) {
     errors.push("isConvertToRequirement=true 时 requirementId 必填。");
@@ -102,6 +115,7 @@ export async function POST(req: Request) {
           system,
           status,
           isConvertToRequirement: isConvertToRequirement ?? false,
+          submittedBy: submittedBy as string,
           // 空串（含前端「清空」语义）统一落 null，避免库中出现空字符串
           ...(requirementId ? { requirementId } : {}),
           ...(requirementContent ? { requirementContent } : {}),

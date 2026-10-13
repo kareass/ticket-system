@@ -7,6 +7,8 @@ import { isPrismaUnique, recomputeDevDays } from "@/lib/server/helpers";
  *
  * 规则：
  * - 需求ID 取工单上填写的 `requirementId`，必填；为空 → 400（不填不能完成转需求）。
+ * - 需求提交人 `submittedBy` 由调用方传入（必填）；不传时**默认取工单上
+ *   `wo.submittedBy`**（兼容工单必填、需求继承自工单的业务规则）。
  * - 新建需求：日期取工单日期、标题取工单标题、内容取工单「需求内容」、
  *   系统取工单系统、节点默认「方案中」、开发时长按 日期→今天 重算、workOrderId 回指工单。
  * - 需求内容**不做兜底**：工单上没填就落空（null），不再回退成工单标题。
@@ -22,6 +24,8 @@ export type SyncResult =
 export async function syncRequirementForWorkOrder(
   wo: DbWorkOrder,
   tx: Prisma.TransactionClient,
+  /** 需求提交人；缺省时取工单的 submittedBy（保持两侧一致） */
+  requirementSubmittedBy?: string,
 ): Promise<SyncResult> {
   const targetId = (wo.requirementId ?? "").trim();
   if (!targetId) {
@@ -29,6 +33,15 @@ export async function syncRequirementForWorkOrder(
       ok: false,
       status: 400,
       error: "「是否转需求」为是时，需求ID 必填（请先填写需求ID 再转需求）。",
+    };
+  }
+
+  const finalSubmitter = (requirementSubmittedBy ?? wo.submittedBy ?? "").trim();
+  if (!finalSubmitter) {
+    return {
+      ok: false,
+      status: 400,
+      error: "需求提交人必填：工单未登记提交人时，转需求必须显式提供 submittedBy。",
     };
   }
 
@@ -44,7 +57,7 @@ export async function syncRequirementForWorkOrder(
     try {
       const renamed = await tx.requirement.update({
         where: { id: linked.id },
-        data: { requirementId: targetId },
+        data: { requirementId: targetId, submittedBy: finalSubmitter },
       });
       return { ok: true, requirement: renamed };
     } catch (err) {
@@ -76,6 +89,7 @@ export async function syncRequirementForWorkOrder(
         developmentDays: recomputeDevDays(dateStr, false, undefined),
         workOrderId: wo.id,
         remark: `由工单「${wo.title || wo.id}」自动转化。`,
+        submittedBy: finalSubmitter,
       },
     });
     return { ok: true, requirement: created };

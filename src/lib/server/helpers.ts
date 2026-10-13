@@ -6,7 +6,7 @@ import type {
   Requirement as DbRequirement,
   WorkOrder as DbWorkOrder,
 } from "@prisma/client";
-import { NODE_OPTIONS, SYSTEM_OPTIONS, WORK_ORDER_STATUS_OPTIONS } from "@/types";
+import { NODE_OPTIONS, SUBMITTER_OPTIONS, SYSTEM_OPTIONS, WORK_ORDER_STATUS_OPTIONS } from "@/types";
 import { diffDays } from "@/lib/utils";
 
 /**
@@ -23,6 +23,7 @@ import { diffDays } from "@/lib/utils";
 export const SYSTEMS: readonly string[] = SYSTEM_OPTIONS;
 export const WORK_ORDER_STATUSES: readonly string[] = WORK_ORDER_STATUS_OPTIONS;
 export const NODES: readonly string[] = NODE_OPTIONS;
+export const SUBMITTERS: readonly string[] = SUBMITTER_OPTIONS;
 
 const CALENDAR_DAY = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -137,6 +138,7 @@ export interface WorkOrderJson {
   requirementContent?: string;
   remark?: string;
   status: string;
+  submittedBy?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -155,6 +157,7 @@ export interface RequirementJson {
   releaseDate?: string;
   remark?: string;
   workOrderId?: string;
+  submittedBy?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -171,6 +174,7 @@ export function toWorkOrderJson(wo: DbWorkOrder): WorkOrderJson {
     requirementContent: clean(wo.requirementContent),
     remark: clean(wo.remark),
     status: wo.status,
+    submittedBy: clean(wo.submittedBy),
     createdAt: wo.createdAt.toISOString(),
     updatedAt: wo.updatedAt.toISOString(),
   };
@@ -193,6 +197,7 @@ export function toRequirementJson(r: DbRequirement): RequirementJson {
       : undefined,
     remark: clean(r.remark),
     workOrderId: clean(r.workOrderId),
+    submittedBy: clean(r.submittedBy),
     createdAt: r.createdAt.toISOString(),
     updatedAt: r.updatedAt.toISOString(),
   };

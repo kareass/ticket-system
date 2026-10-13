@@ -13,35 +13,40 @@
 | 项 | 取值 |
 |----|------|
 | system（系统） | `WMS` / `ERP` / `TMS` / `SCM` / `追溯中心` / `其他` |
-| status（工单状态） | `新建` / `已处理` / `已关闭` |
-| currentNode（需求节点） | `方案中` / `开发中` / `测试中` / `测试完毕` / `已合并` / `已发布` |
+| status（工单状态） | `新建` / `已处理` / `已关闭` / `处理中` / `待优化` |
+| currentNode（需求节点） | `方案中` / `开发中` / `测试中` / `测试完毕` / `已合并` / `已发布` / `退回` |
+| submittedBy（提交人） | `黄傲` / `陈婷婷` |
 | 需求业务编号 | `requirementId`，唯一；建议格式 `R-{年}-{序号}`（如 `R-2026-001`） |
 
 > **枚举的唯一来源是 `src/types/index.ts`**。后端不另写一份取值：`src/lib/server/helpers.ts` 把
 > `SYSTEM_OPTIONS` / `WORK_ORDER_STATUS_OPTIONS` / `NODE_OPTIONS` 转发为 `SYSTEMS` /
-> `WORK_ORDER_STATUSES` / `NODES` 供各接口做 `includes` 校验，因此**接口校验、表单下拉、列表内联下拉、
-> 筛选框四处永远同步**。
+> `WORK_ORDER_STATUSES` / `NODES`，`SUBMITTER_OPTIONS` 转发为 `SUBMITTERS` 供各接口做 `includes` 校验，
+> 因此**接口校验、表单下拉、列表内联下拉、筛选框四处永远同步**。
 >
 > 新增一个下拉选项只需改 `src/types/index.ts` 里的对应数组（配色表是
 > `Record<联合类型, string>`，漏加配色会编译报错）。**不需要数据库迁移** ——
-> `schema.prisma` 中这三个字段是普通 `String` 列而非数据库枚举。
+> `schema.prisma` 中 `system` / `status` / `currentNode` 是普通 `String` 列而非数据库枚举。
 >
-> ⚠️ `NODE_OPTIONS` 的六种节点取值写死在设计文档中，增删节点属需求变更，应先改设计文档；
+> ⚠️ `NODE_OPTIONS` 的取值写死在设计文档中，增删节点属需求变更，应先改设计文档；
 > `SYSTEM_OPTIONS` 未在设计文档中枚举，可直接增删。删除某选项后，库中已使用该值的存量记录
 > 仍可正常编辑（接口对「提交值与库中现值相同」的情形跳过枚举校验），但无法再选回该值，
 > 只能改成其它系统。`status` 同理。
 
 ## 工单 WorkOrder
 
-响应字段：`id`(内部cuid), `date`, `title`, `content`, `system`, `isConvertToRequirement`, `requirementId?`, `requirementContent?`, `remark?`, `status`, `createdAt`, `updatedAt`
+响应字段：`id`(内部cuid), `date`, `title`, `content`, `system`, `isConvertToRequirement`, `requirementId?`, `requirementContent?`, `remark?`, `status`, `submittedBy?`, `createdAt`, `updatedAt`
 
+> `submittedBy`（提交人）新记录必填（`黄傲` / `陈婷婷`），历史数据可空（接口层对空值跳过 enum 校验并落 null）。
+> 列表内联编辑走三态语义：未传不动 / 空串清空 / 非空改名（与 `requirementId` 同款）。
+>
 > `requirementId`（需求ID）/ `requirementContent`（需求内容）对应设计方案「工单表」字段：
 > `isConvertToRequirement=true` 时 `requirementId` **必填**，保存工单即在**同一事务内**据此自动同步创建需求；
 > `=false` 时前端不开放这两个字段的录入（转需求时在列表弹框里填编号）。
 > 接口层不禁止 `=false` 同时带 `requirementId` —— 删除关联需求后工单会保留原编号供重新转需求（见删除接口）。
 
 ### 列表 · `GET /api/work-orders`
-可选查询：`?system=WMS&keyword=出库`（keyword 匹配标题，忽略大小写）。按 `createdAt` 倒序。
+可选查询：`?system=WMS&keyword=出库&submittedBy=黄傲`（keyword 匹配标题，submittedBy 匹配提交人）。
+枚举外的值视作不过滤（不会 400）。按 `createdAt` 倒序。
 响应：`200` → `WorkOrder[]`
 
 ### 单查 · `GET /api/work-orders/{id}`
@@ -59,6 +64,7 @@
   "isConvertToRequirement": false, // 默认 false
   "requirementId": "R-2026-006",   // 需求ID；isConvertToRequirement=true 时必填
   "requirementContent": "……",      // 需求内容；留空则建出的需求内容也为空（不做兜底）
+  "submittedBy": "黄傲",           // * 新记录必填（黄傲 / 陈婷婷）；历史数据可空
   "remark": "可选"
 }
 ```
@@ -67,10 +73,11 @@
 响应：`201` → `WorkOrder`；`400` 校验失败（含 details）；`409` 需求ID 已被占用
 
 ### 更新 · `PUT /api/work-orders/{id}`
-请求体：上述任意字段（局部更新）。`remark`/`requirementId`/`requirementContent` 传空串将置空。额外行为：
+请求体：上述任意字段（局部更新）。`remark`/`requirementId`/`requirementContent`/`submittedBy` 传空串将置空（与「未传」语义不同）；未传 `submittedBy` 不修改。额外行为：
 
 - `isConvertToRequirement` 置 `true` → **事务内**按工单的 `requirementId` 自动同步需求：未关联则创建，已关联且编号变化则同步改名；`requirementId` 为空 → `400`，编号被占用 → `409`；
-- 已关联需求的工单不允许把 `isConvertToRequirement` 置 `false` → `400`（如需取消请先删除关联需求）。
+- 已关联需求的工单不允许把 `isConvertToRequirement` 置 `false` → `400`（如需取消请先删除关联需求）；
+- 打开「转需求」时工单上的 `submittedBy` 会被一同同步给需求（事务内）。
 
 响应：`200` → `WorkOrder`；`400` 校验失败 / 无可更新字段 / 缺需求ID / 已关联时关闭转需求；`404` 工单不存在；`409` 需求ID 已被占用
 
@@ -79,12 +86,13 @@
 
 ## 需求 Requirement
 
-响应字段：`id`(cuid), `requirementId`, `date`, `title?`, `content?`, `system`, `developmentDays?`, `currentNode`, `isUrgent`, `isReleased`, `releaseDate?`, `remark?`, `workOrderId?`, `createdAt`, `updatedAt`
+响应字段：`id`(cuid), `requirementId`, `date`, `title?`, `content?`, `system`, `developmentDays?`, `currentNode`, `isUrgent`, `isReleased`, `releaseDate?`, `remark?`, `workOrderId?`, `submittedBy?`, `createdAt`, `updatedAt`
 
+> `submittedBy` 新记录必填（`黄傲` / `陈婷婷`），历史数据可空。三态语义同工单。
 > **developmentDays 规则**（服务端权威计算，忽略提交值）：未发版 = `date → 今天`；已发版 = `date → releaseDate`；含当天，下限 0。
 
 ### 列表 · `GET /api/requirements`
-可选查询：`?system=WMS&currentNode=测试中&keyword=xxx`（keyword 匹配需求ID或标题）。按 `createdAt` 倒序。
+可选查询：`?system=WMS&currentNode=测试中&keyword=xxx&submittedBy=黄傲`（keyword 匹配需求ID或标题）。枚举外的值视作不过滤。按 `createdAt` 倒序。
 响应：`200` → `Requirement[]`
 
 ### 单查 · `GET /api/requirements/{id}`
@@ -102,6 +110,7 @@
   "isUrgent": false,           // 默认 false
   "isReleased": false,         // 默认 false；true 时 releaseDate 必填
   "releaseDate": "2026-09-08", // 仅 isReleased=true 时必填
+  "submittedBy": "黄傲",       // * 新记录必填（黄傲 / 陈婷婷）
   "remark": "可选",
   "workOrderId": null          // 可选：关联来源工单（一对一）。见下
 }
@@ -130,15 +139,18 @@
                                    // 不传 → 退回工单上已登记的 requirementId
   "requirementContent": "……"       // 本次转出的需求内容；不传 → 退回工单上已存的 requirementContent
                                    // 传空串 "" → 显式清空（需求内容落 null），与「不传」语义不同
+  "submittedBy": "黄傲"            // 本次转出的需求提交人；不传 → 退回工单上已登记的 submittedBy
+                                   // 入参必须在枚举内；工单未登记 submittedBy 且入参也不传 → 400
+                                   // （历史工单无提交人时，弹框必须显式提供）
 }
 ```
 逻辑：
 1. 工单不存在 → `404`；
 2. 已转需求（`isConvertToRequirement=true` 或已有关联需求）→ `409`；
-3. 最终需求ID（入参优先，其次工单已登记值）为空 → `400`（**需求ID 必填，不填不能完成转需求**）；校验失败不产生任何写入；
-4. **事务内**：入参的 `requirementId` / `requirementContent` 先写回工单（保证工单与需求两侧一致），再据此创建需求 —— 日期取工单日期、标题取工单标题、内容取工单 `requirementContent`（**为空即落空，不做任何兜底**）、系统取工单系统、`currentNode=方案中`、`developmentDays` 按 `date→今天` 计算、`workOrderId` 指向该工单、`remark` 注明来源；最后置工单 `isConvertToRequirement=true`。
+3. 最终需求ID（入参优先，其次工单已登记值）为空 → `400`（**需求ID 必填，不填不能完成转需求**）；最终需求提交人为空 → `400`；校验失败不产生任何写入；
+4. **事务内**：入参的 `requirementId` / `requirementContent` 先写回工单（保证工单与需求两侧一致），再据此创建需求 —— 日期取工单日期、标题取工单标题、内容取工单 `requirementContent`（**为空即落空，不做任何兜底**）、系统取工单系统、`currentNode=方案中`、`developmentDays` 按 `date→今天` 计算、`workOrderId` 指向该工单、`submittedBy` 取最终提交人、`remark` 注明来源；最后置工单 `isConvertToRequirement=true`。
 
-响应：`201` → `{ "requirement": Requirement, "workOrder": WorkOrder }`；`400` 未填需求ID；`404`；`409`（已转 / 编号被占用）
+响应：`201` → `{ "requirement": Requirement, "workOrder": WorkOrder }`；`400` 未填需求ID / 未填提交人；`404`；`409`（已转 / 编号被占用）
 
 ## 会议纪要 Meeting / 附件 MeetingAttachment
 
@@ -201,4 +213,4 @@
 | 204 | 删除成功（无响应体） |
 
 ## 自动化测试
-`node scripts/api-smoke.mjs` —— 需先启动服务（dev 或生产均可）；覆盖工单/需求 CRUD、需求ID 同步（必填/改名/撞号/锁定）、convert 入参与退回两条路径、需求内容空值语义（不传/空串/无内容均不回退标题）、409/404/400/413、发版联动、开发时长重算、来源链接与删除一致性、会议纪要 CRUD、附件上传/下载/删除/白名单/自清理（148 项断言全绿，运行后自动清理测试数据）。
+`node scripts/api-smoke.mjs` —— 需先启动服务（dev 或生产均可）；覆盖全部 CRUD、需求ID 同步（必填/改名/撞号/锁定）、convert 入参与退回两条路径、需求内容空值语义（不传/空串/无内容均不回退标题）、409/404/400/413、发版联动、开发时长重算、来源链接与删除一致性、提交人必填 + 三态 + convert 继承/覆写、提交人列表筛选、会议纪要 CRUD、附件上传/下载/删除/白名单/自清理（181 项断言全绿，运行后自动清理测试数据）。

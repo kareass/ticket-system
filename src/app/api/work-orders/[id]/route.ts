@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/server/db";
 import {
   ApiFailure,
+  SUBMITTERS,
   SYSTEMS,
   WORK_ORDER_STATUSES,
   apiError,
@@ -103,6 +104,18 @@ export async function PUT(req: Request, { params }: Ctx) {
   }
   if (body.requirementContent !== undefined) {
     data.requirementContent = asTrimmed(body.requirementContent) || null;
+  }
+  // 提交人三态：未传不改 / 传空串清空 / 传非空改名（与 requirementId 同款语义）
+  if (body.submittedBy !== undefined) {
+    const submittedBy = asTrimmed(body.submittedBy);
+    if (!submittedBy) {
+      data.submittedBy = null;
+    } else if (submittedBy !== existing.submittedBy && !SUBMITTERS.includes(submittedBy)) {
+      errors.push(`submittedBy 须为以下之一：${SUBMITTERS.join(" / ")}。`);
+    } else if (submittedBy !== existing.submittedBy) {
+      data.submittedBy = submittedBy;
+    }
+    // 与现值相同 → 不写 data、不校验枚举（保留旧值）
   }
 
   if (errors.length) return apiError(400, "参数校验失败。", errors);
