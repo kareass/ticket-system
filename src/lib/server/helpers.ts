@@ -3,10 +3,17 @@ import { Prisma } from "@prisma/client";
 import type {
   Meeting as DbMeeting,
   MeetingAttachment as DbMeetingAttachment,
+  Reminder as DbReminder,
   Requirement as DbRequirement,
   WorkOrder as DbWorkOrder,
 } from "@prisma/client";
-import { NODE_OPTIONS, SUBMITTER_OPTIONS, SYSTEM_OPTIONS, WORK_ORDER_STATUS_OPTIONS } from "@/types";
+import {
+  NODE_OPTIONS,
+  REMINDEE_OPTIONS,
+  SUBMITTER_OPTIONS,
+  SYSTEM_OPTIONS,
+  WORK_ORDER_STATUS_OPTIONS,
+} from "@/types";
 import { diffDays } from "@/lib/utils";
 
 /**
@@ -24,6 +31,7 @@ export const SYSTEMS: readonly string[] = SYSTEM_OPTIONS;
 export const WORK_ORDER_STATUSES: readonly string[] = WORK_ORDER_STATUS_OPTIONS;
 export const NODES: readonly string[] = NODE_OPTIONS;
 export const SUBMITTERS: readonly string[] = SUBMITTER_OPTIONS;
+export const REMINDEES: readonly string[] = REMINDEE_OPTIONS;
 
 const CALENDAR_DAY = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -283,5 +291,29 @@ export function toMeetingJson(
     attachments: (m.attachments ?? []).map(toMeetingAttachmentJson),
     createdAt: m.createdAt.toISOString(),
     updatedAt: m.updatedAt.toISOString(),
+  };
+}
+
+/* ---------------- 工作提醒 ---------------- */
+
+export interface ReminderJson {
+  id: string;
+  date: string;
+  remindee: string;
+  content: string;
+  isDone: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export function toReminderJson(r: DbReminder): ReminderJson {
+  return {
+    id: r.id,
+    date: dayOnly(r.date) as string,
+    remindee: r.remindee,
+    content: r.content,
+    isDone: r.isDone,
+    createdAt: r.createdAt.toISOString(),
+    updatedAt: r.updatedAt.toISOString(),
   };
 }
