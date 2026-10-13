@@ -98,3 +98,20 @@ model MeetingAttachment {
 
   @@map("MeetingAttachment")
 }
+
+// ---------- 工作提醒表 Reminder ----------
+/// 工作提醒：登记「什么时候要提醒谁做什么」，并跟踪是否办结。
+/// 与其他表零关系 —— 不关联工单 / 需求 / 会议。
+/// remindee / content 定为非空：这是全新表，不存在历史数据，
+/// 把「必填」落到库结构比「可空 + 接口层校验」更强（对比 WorkOrder.submittedBy 的 String?）。
+model Reminder {
+  id        String   @id @default(cuid())
+  date      DateTime // 提醒日期（按日历日入库，表单默认今天）
+  remindee  String // 提醒人（REMINDEE_OPTIONS 之一）
+  content   String // 提醒内容
+  isDone    Boolean  @default(false) // 是否已完成
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("Reminder")
+}
