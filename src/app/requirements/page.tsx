@@ -4,14 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Button,
-  Card,
   Input,
   message,
   Modal,
   Popconfirm,
   Select,
   Space,
-  Tag,
+  Tooltip,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { PlusOutlined, ReloadOutlined, SearchOutlined } from "@ant-design/icons";
@@ -29,12 +28,17 @@ import { useAppStore } from "@/store/store";
 import { formatDate, today } from "@/lib/utils";
 import { toErrorMessage } from "@/lib/errors";
 import ProTable from "@/components/common/ProTable";
+import Surface from "@/components/common/Surface";
 import EditableChip from "@/components/common/EditableChip";
 import SortableHeader from "@/components/common/SortableHeader";
 import { createComparator, type SortState } from "@/lib/sortRows";
 import { useRowDrafts } from "@/lib/useRowDrafts";
+import { MOSS } from "@/lib/theme";
 
 // 配色与选项均唯一来源 src/types（新增选项时只改那一处）
+
+/** 空值占位：中文数据表惯例用全角破折号「—」，颜色退到装饰灰 */
+const EMPTY = <span style={{ color: MOSS.ornament }}>—</span>;
 
 // 当前节点筛选下拉选项
 const nodeOptions = asSelectOptions(NODE_OPTIONS);
@@ -88,6 +92,16 @@ export default function RequirementListPage() {
       return hitText && hitNode && hitSubmitter;
     });
   }, [requirements, keyword, node, submitter]);
+
+  // 台头计数：统计**全部**需求，不随筛选变化。
+  // 「已发版」以**是否发版这个勾选**为准，而不是以当前节点为准 ——
+  // 节点是流程走到哪一步，发版是「真的上了线」；
+  // 一个需求可以节点停在「已合并」而发版勾选已打上（见 seed 的 R-2026-002）。
+  const stats = useMemo(() => {
+    const total = requirements.length;
+    const released = requirements.filter((r) => r.isReleased).length;
+    return { total, released };
+  }, [requirements]);
 
   // 双击列头：升序 → 降序 → 取消（回到默认的创建时间倒序）
   const handleSortToggle = (field: keyof Requirement) => {
@@ -143,14 +157,20 @@ export default function RequirementListPage() {
       dataIndex: "requirementId",
       key: "requirementId",
       width: 130,
-      render: (requirementId?: string) => requirementId || "-",
+      // 需求编号是编号，用等宽字：三行的 R-2026-00x 只有末位不同，等宽才对齐好扫
+      render: (requirementId?: string) =>
+        requirementId ? (
+          <span className="mono">{requirementId}</span>
+        ) : (
+          EMPTY
+        ),
     },
     {
       title: sortableTitle("日期", "date"),
       dataIndex: "date",
       key: "date",
       width: 110,
-      render: (date: string) => formatDate(date),
+      render: (date: string) => <span className="mono">{formatDate(date)}</span>,
     },
     {
       title: "需求标题",
@@ -158,7 +178,7 @@ export default function RequirementListPage() {
       key: "title",
       width: 200,
       ellipsis: true,
-      render: (title?: string) => title || "-",
+      render: (title?: string) => title || EMPTY,
     },
     {
       title: "需求内容",
@@ -166,7 +186,7 @@ export default function RequirementListPage() {
       key: "content",
       width: 240,
       ellipsis: true,
-      render: (content?: string) => content || "-",
+      render: (content?: string) => content || EMPTY,
     },
     {
       title: "系统",
@@ -210,7 +230,13 @@ export default function RequirementListPage() {
       key: "developmentDays",
       width: 110,
       align: "center" as const,
-      render: (days?: number) => (typeof days === "number" ? days : "-"),
+      // 天数是量，等宽才好纵向比大小
+      render: (days?: number) =>
+        typeof days === "number" ? (
+          <span className="mono">{days}</span>
+        ) : (
+          EMPTY
+        ),
     },
     {
       title: sortableTitle("当前节点", "currentNode"),
@@ -241,7 +267,8 @@ export default function RequirementListPage() {
         <EditableChip
           value={isUrgent}
           options={YES_NO_OPTIONS}
-          colorOf={(v) => (v ? "red" : undefined)}
+          // 加急本身就是「例外」，是这一屏里少数几个配得上用色的地方
+          tone="danger"
           dirty={drafts.isFieldDirty(record.id, "isUrgent")}
           onChange={(val) =>
             drafts.stage(record.id, { isUrgent: val } as Partial<Requirement>)
@@ -259,7 +286,8 @@ export default function RequirementListPage() {
         <EditableChip
           value={isReleased}
           options={YES_NO_OPTIONS}
-          colorOf={(v) => (v ? "success" : undefined)}
+          // 发版是本方向的「到达」色，与加急的红形成一对：一个是里程碑，一个是警报
+          tone="accent"
           dirty={drafts.isFieldDirty(record.id, "isReleased")}
           onChange={(val) => {
             const enabling = val === true;
@@ -281,21 +309,31 @@ export default function RequirementListPage() {
       dataIndex: "releaseDate",
       key: "releaseDate",
       width: 115,
+      // 未发版时不留空白也不写「-」以外的东西：发版时间只在真的发了版才有意义
       render: (_, record) =>
-        record.isReleased ? formatDate(record.releaseDate) : "-",
+        record.isReleased ? (
+          <span className="mono">{formatDate(record.releaseDate)}</span>
+        ) : (
+          EMPTY
+        ),
     },
     {
       title: "来源工单",
       key: "sourceWorkOrder",
       width: 130,
       render: (_, record) => {
-        if (!record.workOrderId) return "-";
+        if (!record.workOrderId) return EMPTY;
         const src = workOrders.find((w) => w.id === record.workOrderId);
-        return (
-          <Tag color="geekblue">
-            {src ? src.title || src.id : record.workOrderId}
-          </Tag>
-        );
+        // 找得到工单 → 显示它的标题（是标题，不用等宽字）；
+        // 找不到（工单被删）→ 显示原始 id，用虚线标注，与本系统其它「孤儿引用」同一套语言
+        if (!src) {
+          return (
+            <Tooltip title="该需求关联的工单已不存在">
+              <span className="mono wo-orphan-id">{record.workOrderId}</span>
+            </Tooltip>
+          );
+        }
+        return <span>{src.title || src.id}</span>;
       },
     },
     {
@@ -304,7 +342,7 @@ export default function RequirementListPage() {
       key: "remark",
       width: 160,
       ellipsis: true,
-      render: (remark?: string) => remark || "-",
+      render: (remark?: string) => remark || EMPTY,
     },
     {
       title: "操作",
@@ -348,87 +386,110 @@ export default function RequirementListPage() {
   ];
 
   return (
-    <Card title="需求列表">
-      {/* 顶部工具栏 */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          flexWrap: "wrap",
-          gap: 12,
-          marginBottom: 16,
-        }}
-      >
-        <Space>
-          <Link href="/requirements/create">
-            <Button type="primary" icon={<PlusOutlined />}>
-              新建需求
-            </Button>
-          </Link>
-          {/* 提交按钮：有草稿时启用，显示待提交数量 */}
-          <Button
-            type="primary"
-            disabled={drafts.count === 0}
-            onClick={handleCommit}
-          >
-            提交{drafts.count ? `（${drafts.count}）` : ""}
-          </Button>
-          {/* 还原按钮：有草稿时才显示 */}
-          {drafts.count > 0 ? (
-            <Button onClick={() => drafts.discard()}>还原</Button>
-          ) : null}
-        </Space>
-        <Space wrap>
-          <Button
-            icon={<ReloadOutlined />}
-            loading={loading}
-            onClick={() => {
-              void loadRequirements(true).catch((e) =>
-                message.error(toErrorMessage(e)),
-              );
-              void loadWorkOrders(true).catch(() => undefined);
-            }}
-          >
-            刷新
-          </Button>
-          <Input
-            allowClear
-            placeholder="按需求ID/标题搜索"
-            prefix={<SearchOutlined />}
-            style={{ width: 220 }}
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-          />
-          <Select<RequirementNode>
-            allowClear
-            placeholder="按当前节点筛选"
-            style={{ width: 180 }}
-            options={nodeOptions}
-            value={node}
-            onChange={(value) => setNode(value)}
-          />
-          <Select<string>
-            allowClear
-            placeholder="按提交人筛选"
-            style={{ width: 140 }}
-            options={submitterOptions}
-            value={submitter}
-            onChange={(value) => setSubmitter(value)}
-          />
-        </Space>
-      </div>
+    <>
+      <Surface style={{ marginBottom: 20 }}>
+        {/* 台头：与工单管理同一套。「已发版」数的是勾选，不是节点 */}
+        <div className="page-head">
+          <h1>需求管理</h1>
+          <div className="page-stats">
+            <div className="page-stat">
+              <b>{stats.total}</b>
+              <span>需求总数</span>
+            </div>
+            <div className="page-stat">
+              <b>{stats.released}</b>
+              <span>已发版</span>
+            </div>
+          </div>
+        </div>
 
-      <ProTable<Requirement>
-        rowKey="id"
-        columns={columns}
-        dataSource={sortedRequirements.map(drafts.merge)}
-        loading={loading}
-        scroll={{ x: 1560 }}
-        layoutStorageKey="requirements"
-        pagination={{
-          showTotal: (total) => `共 ${total} 条`,
-        }}
-      />
-    </Card>
+        {/* 工具行：动作在左，筛选与搜索在右 */}
+        <div className="page-tools">
+          <Space>
+            <Link href="/requirements/create">
+              <Button type="primary" icon={<PlusOutlined />}>
+                新建需求
+              </Button>
+            </Link>
+            {/* 提交按钮：有草稿时启用，显示待提交数量 */}
+            <Button
+              type="primary"
+              disabled={drafts.count === 0}
+              onClick={handleCommit}
+            >
+              提交{drafts.count ? `（${drafts.count}）` : ""}
+            </Button>
+            {/* 还原按钮：有草稿时才显示 */}
+            {drafts.count > 0 ? (
+              <Button onClick={() => drafts.discard()}>还原</Button>
+            ) : null}
+          </Space>
+          <div className="page-filters">
+            <div className="field">
+              <label htmlFor="req-kw">搜索</label>
+              <Input
+                id="req-kw"
+                allowClear
+                placeholder="需求ID / 标题"
+                prefix={<SearchOutlined />}
+                style={{ width: 200 }}
+                value={keyword}
+                onChange={(e) => setKeyword(e.target.value)}
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="req-node">节点</label>
+              <Select<RequirementNode>
+                id="req-node"
+                allowClear
+                placeholder="全部"
+                style={{ width: 140 }}
+                options={nodeOptions}
+                value={node}
+                onChange={(value) => setNode(value)}
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="req-sub">提交人</label>
+              <Select<string>
+                id="req-sub"
+                allowClear
+                placeholder="全部"
+                style={{ width: 120 }}
+                options={submitterOptions}
+                value={submitter}
+                onChange={(value) => setSubmitter(value)}
+              />
+            </div>
+            <Button
+              icon={<ReloadOutlined />}
+              loading={loading}
+              onClick={() => {
+                void loadRequirements(true).catch((e) =>
+                  message.error(toErrorMessage(e)),
+                );
+                void loadWorkOrders(true).catch(() => undefined);
+              }}
+            >
+              刷新
+            </Button>
+          </div>
+        </div>
+      </Surface>
+
+      <Surface padding={0}>
+        <ProTable<Requirement>
+          rowKey="id"
+          columns={columns}
+          dataSource={sortedRequirements.map(drafts.merge)}
+          loading={loading}
+          scroll={{ x: 1560 }}
+          layoutStorageKey="requirements"
+          pagination={{
+            showTotal: (total) => `共 ${total} 条`,
+          }}
+        />
+      </Surface>
+    </>
   );
 }
