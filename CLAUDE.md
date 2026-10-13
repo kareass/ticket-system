@@ -14,7 +14,7 @@ npm run dev            # 开发模式（首次进入每个路由现场编译，1
 npm run build          # 生产构建
 npm run start          # 生产启动（日常使用请用生产模式，页面 6~300ms）
 npm run typecheck      # tsc --noEmit（提交前必跑）
-npm run api:smoke      # 后端接口冒烟，181 项断言（需服务已在 :3000 运行）
+npm run api:smoke      # 后端接口冒烟，198 项断言（需服务已在 :3000 运行）
 npm run check:env      # 环境检查清单（纯本地，不联网）
 npm run db:migrate     # prisma migrate deploy（建表）
 npm run db:seed        # 写入演示数据（会先清空现有数据）
@@ -22,7 +22,7 @@ npm run verify         # typecheck + build
 ```
 
 **没有单元测试框架**（无 jest/vitest），也没有「只跑某个用例」的开关 —— `api:smoke` 是唯一的自动化测试，
-每次全量跑 181 项。要加断言就直接往 `scripts/api-smoke.mjs` 里加，它自清理、可重复运行。
+每次全量跑 198 项。要加断言就直接往 `scripts/api-smoke.mjs` 里加，它自清理、可重复运行。
 
 ## 架构
 
@@ -31,6 +31,10 @@ npm run verify         # typecheck + build
 
 会议纪要模块（`Meeting` / `MeetingAttachment`）的附件存储在磁盘 `uploads/` 目录，**不在数据库里**；
 备份脚本 `scripts/backup-db.mjs` 会将 `dev.db` 与 `uploads/` 一起打包为 `.tar.gz`，恢复时须两者同时还原。
+
+工作提醒模块（`Reminder`）是**单表、无外键、无唯一约束**，与其他模块零关系。
+`remindee` / `content` 是**非空列**（把「必填」落到库结构，而不是「可空 + 接口层校验」）。
+它的列表按 `date` **升序**排 —— **全站唯一**一个不按 `createdAt` 倒序的列表，别为了「保持一致」改掉。
 
 ### 数据层（Prisma / SQLite）
 
@@ -79,6 +83,8 @@ npm run verify         # typecheck + build
 - **列表内联修改必须显式「提交」才落库**：`src/lib/useRowDrafts.ts` 的 `useRowDrafts<Row>()` 提供
   `stage(id, patch)` / `isFieldDirty(id, field)` / `count` / `commitAsync(...)`。未提交切页即丢失。
   新增可内联编辑的列时，必须接进这套草稿门，不要直接调 store 的 update。
+- **唯一破例**：工作提醒列表勾选「已完成」直接 `PUT` 落库，不经草稿门 —— 布尔开关没有中间态，
+  不存在「半成品被静默丢弃」的风险。**严格限定在 `isDone` 这一个布尔字段**，提醒内容仍走编辑页。
 - `ProTable` 的列顺序/列宽存在浏览器 `localStorage`（每张表一个 key），**不属于业务数据**。
 - antd 陷阱：`Form.useWatch` 首次渲染可能返回 `undefined`，需回退到 `formInitialValues`，否则开关门控会闪一帧。
   `Form.Item` 的 rules 可用函数形式 `({ getFieldValue }) => ({ validator })` 做跨字段校验。
@@ -127,10 +133,10 @@ npm run verify         # typecheck + build
 |------|------|
 | `docs/四川物流工单系统-设计方案.md` | **唯一权威设计文档** |
 | `docs/API-接口文档.md` | 接口契约、枚举口径、错误码 |
-| `docs/用户手册.md` | 面向使用者的操作说明（含 7.1 新增下拉选项的步骤） |
+| `docs/用户手册.md` | 面向使用者的操作说明（含 9.1 新增下拉选项的步骤） |
 | `docs/部署指南.md` / `docs/内网部署方案.md` | 部署 |
 | `docs/测试报告-环节6.md` | 测试记录、性能数据、各轮验收反馈（F1–F7）与 Bug 记录 |
 
-改了接口/枚举/字段口径时，同步更新上面对应的文档 —— 各文档里都写明了断言数（181）等具体数字，容易漏。
+改了接口/枚举/字段口径时，同步更新上面对应的文档 —— 各文档里都写明了断言数（198）等具体数字，容易漏。
 
 `agents/*.md` 是构建期的角色定义（子会话提示词），不是本仓库的开发规范。
