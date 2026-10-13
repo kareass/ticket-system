@@ -2,16 +2,21 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Button, Card, Input, message, Popconfirm, Space, Tag } from "antd";
+import { Button, Input, message, Popconfirm, Space, Tag } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { PlusOutlined, ReloadOutlined, SearchOutlined } from "@ant-design/icons";
 import type { Meeting } from "@/types";
 import { useAppStore } from "@/store/store";
-import { formatDate } from "@/lib/utils";
+import { formatDate, today } from "@/lib/utils";
 import { toErrorMessage } from "@/lib/errors";
 import ProTable from "@/components/common/ProTable";
+import Surface from "@/components/common/Surface";
 import SortableHeader from "@/components/common/SortableHeader";
 import { createComparator, type SortState } from "@/lib/sortRows";
+import { MOSS } from "@/lib/theme";
+
+/** 空值占位：中文数据表惯例用全角破折号「—」，颜色退到装饰灰 */
+const EMPTY = <span style={{ color: MOSS.ornament }}>—</span>;
 
 /**
  * 会议纪要列表（**只读**）
@@ -52,6 +57,17 @@ export default function MeetingListPage() {
     });
   }, [meetings, keyword]);
 
+  // 台头计数：统计**全部**纪要，不随筛选变化。
+  // 「本月」按 date 的 "YYYY-MM" 前缀比 —— date 是 "YYYY-MM-DD"，
+  // 直接切字符串比转 Date 少一次时区风险。
+  const stats = useMemo(() => {
+    const month = today().slice(0, 7);
+    return {
+      total: meetings.length,
+      thisMonth: meetings.filter((m) => m.date.startsWith(month)).length,
+    };
+  }, [meetings]);
+
   // 双击列头：升序 → 降序 → 取消（回到默认的 createdAt 倒序）
   const handleSortToggle = (field: keyof Meeting) => {
     setSort((prev) => {
@@ -83,7 +99,8 @@ export default function MeetingListPage() {
       dataIndex: "date",
       key: "date",
       width: 110,
-      render: (date: string) => formatDate(date),
+      // 日期是数字串，等宽才纵向对齐
+      render: (date: string) => <span className="mono">{formatDate(date)}</span>,
     },
     {
       title: sortableTitle("主题", "title"),
@@ -91,7 +108,7 @@ export default function MeetingListPage() {
       key: "title",
       width: 200,
       ellipsis: true,
-      render: (title?: string) => title || "-",
+      render: (title?: string) => title || EMPTY,
     },
     {
       title: "参会人",
@@ -99,7 +116,8 @@ export default function MeetingListPage() {
       key: "attendees",
       width: 220,
       render: (attendees: string[]) => {
-        if (!attendees.length) return "-";
+        if (!attendees.length) return EMPTY;
+        // 中性小标签：这里用标签只是为了把几个名字分开，不承担配色语义
         return (
           <Space size={[0, 4]} wrap>
             {attendees.map((name) => (
@@ -114,7 +132,7 @@ export default function MeetingListPage() {
       dataIndex: "recorder",
       key: "recorder",
       width: 110,
-      render: (recorder?: string) => recorder || "-",
+      render: (recorder?: string) => recorder || EMPTY,
     },
     {
       title: "会议内容",
@@ -122,15 +140,20 @@ export default function MeetingListPage() {
       key: "content",
       width: 320,
       ellipsis: true,
-      render: (content?: string) => content || "-",
+      render: (content?: string) => content || EMPTY,
     },
     {
       title: "附件",
       key: "attachments",
       width: 90,
       align: "center" as const,
+      // 条数是量，等宽
       render: (_, record) =>
-        record.attachments.length ? `${record.attachments.length} 个` : "-",
+        record.attachments.length ? (
+          <span className="mono">{record.attachments.length}</span>
+        ) : (
+          EMPTY
+        ),
     },
     {
       title: "操作",
@@ -169,58 +192,74 @@ export default function MeetingListPage() {
   ];
 
   return (
-    <Card title="会议纪要">
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          flexWrap: "wrap",
-          gap: 12,
-          marginBottom: 16,
-        }}
-      >
-        <Space>
-          <Link href="/meetings/create">
-            <Button type="primary" icon={<PlusOutlined />}>
-              新建会议纪要
-            </Button>
-          </Link>
-        </Space>
-        <Space wrap>
-          <Button
-            icon={<ReloadOutlined />}
-            loading={loading}
-            onClick={() => {
-              void loadMeetings(true).catch((e) =>
-                message.error(toErrorMessage(e)),
-              );
-            }}
-          >
-            刷新
-          </Button>
-          <Input
-            allowClear
-            placeholder="按主题/参会人/记录人/内容搜索"
-            prefix={<SearchOutlined />}
-            style={{ width: 260 }}
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-          />
-        </Space>
-      </div>
+    <>
+      <Surface style={{ marginBottom: 20 }}>
+        {/* 台头：与工单/需求同一套 */}
+        <div className="page-head">
+          <h1>会议纪要</h1>
+          <div className="page-stats">
+            <div className="page-stat">
+              <b>{stats.total}</b>
+              <span>纪要总数</span>
+            </div>
+            <div className="page-stat">
+              <b>{stats.thisMonth}</b>
+              <span>本月</span>
+            </div>
+          </div>
+        </div>
 
-      <ProTable<Meeting>
-        rowKey="id"
-        columns={columns}
-        dataSource={sortedMeetings}
-        loading={loading}
-        scroll={{ x: 1200 }}
-        layoutStorageKey="meetings"
-        pagination={{
-          pageSize: 10,
-          showTotal: (total) => `共 ${total} 条`,
-        }}
-      />
-    </Card>
+        {/* 工具行：动作在左，搜索在右 */}
+        <div className="page-tools">
+          <Space>
+            <Link href="/meetings/create">
+              <Button type="primary" icon={<PlusOutlined />}>
+                新建会议纪要
+              </Button>
+            </Link>
+          </Space>
+          <div className="page-filters">
+            <div className="field">
+              <label htmlFor="mtg-kw">搜索</label>
+              <Input
+                id="mtg-kw"
+                allowClear
+                placeholder="主题 / 参会人 / 记录人 / 内容"
+                prefix={<SearchOutlined />}
+                style={{ width: 260 }}
+                value={keyword}
+                onChange={(e) => setKeyword(e.target.value)}
+              />
+            </div>
+            <Button
+              icon={<ReloadOutlined />}
+              loading={loading}
+              onClick={() => {
+                void loadMeetings(true).catch((e) =>
+                  message.error(toErrorMessage(e)),
+                );
+              }}
+            >
+              刷新
+            </Button>
+          </div>
+        </div>
+      </Surface>
+
+      <Surface padding={0}>
+        <ProTable<Meeting>
+          rowKey="id"
+          columns={columns}
+          dataSource={sortedMeetings}
+          loading={loading}
+          scroll={{ x: 1200 }}
+          layoutStorageKey="meetings"
+          pagination={{
+            pageSize: 10,
+            showTotal: (total) => `共 ${total} 条`,
+          }}
+        />
+      </Surface>
+    </>
   );
 }
