@@ -1,5 +1,5 @@
 import axios from "axios";
-import type { Meeting, MeetingAttachment, WorkOrder, Requirement } from "@/types";
+import type { Meeting, MeetingAttachment, Reminder, WorkOrder, Requirement } from "@/types";
 
 /**
  * API 请求封装（环节5 起为真实数据源）
@@ -104,4 +104,23 @@ export const meetingApi = {
   /** 附件下载 / 预览地址（直接给 <img src> 或 <a href> 用） */
   attachmentUrl: (attachmentId: string): string =>
     `${process.env.NEXT_PUBLIC_API_BASE_URL || "/api"}/attachments/${attachmentId}`,
+};
+
+// ---------- 工作提醒 ----------
+export const reminderApi = {
+  list: async (params?: {
+    isDone?: boolean;
+    remindee?: string;
+    keyword?: string;
+  }): Promise<Reminder[]> =>
+    (await http.get<Reminder[]>("/reminders", { params })).data,
+  get: async (id: string): Promise<Reminder> =>
+    (await http.get<Reminder>(`/reminders/${id}`)).data,
+  create: async (data: Partial<Reminder>): Promise<Reminder> =>
+    (await http.post<Reminder>("/reminders", data)).data,
+  update: async (id: string, data: Partial<Reminder>): Promise<Reminder> =>
+    (await http.put<Reminder>(`/reminders/${id}`, data)).data,
+  remove: async (id: string): Promise<void> => {
+    await http.delete(`/reminders/${id}`);
+  },
 };
