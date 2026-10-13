@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import type { WorkOrder, Requirement, Meeting, MeetingAttachment } from "@/types";
-import { meetingApi, requirementApi, workOrderApi } from "@/lib/api";
+import type { WorkOrder, Requirement, Meeting, MeetingAttachment, Reminder } from "@/types";
+import { meetingApi, reminderApi, requirementApi, workOrderApi } from "@/lib/api";
 
 /**
  * 全局状态（Zustand）—— 环节5 起接真实后端 API（Prisma/SQLite）。
@@ -62,6 +62,30 @@ interface AppState {
   /** 把单查得到的纪要并入列表缓存（编辑页回源后调用）。
    *  附件增删只 patch 缓存，纪要不在缓存里就会静默丢掉更新。 */
   upsertMeeting: (m: Meeting) => void;
+
+  // 工作提醒
+  reminders: Reminder[];
+  remindersLoading: boolean;
+  /** 是否已完成过一次加载（首页卡片与列表页同用；force=true 可强制刷新） */
+  remindersLoaded: boolean;
+  loadReminders: (force?: boolean) => Promise<Reminder[]>;
+  addReminder: (input: Partial<Reminder>) => Promise<Reminder>;
+  updateReminder: (id: string, patch: Partial<Reminder>) => Promise<Reminder>;
+  deleteReminder: (id: string) => Promise<void>;
+  /** 把单查得到的提醒并入列表缓存（编辑页回源后调用）。
+   *  updateReminder 只对**已在缓存里**的记录打补丁，未并入就会被静默丢掉。 */
+  upsertReminder: (r: Reminder) => void;
+}
+
+/**
+ * 提醒列表的本地顺序必须与接口一致：date 升序，同日按 createdAt 升序。
+ * 新建或回源并入缓存后若不重排，界面顺序会与「刷新」之后不一致
+ * （其它三个列表是 createdAt 倒序，前插恰好正确；本表升序，前插是错的）。
+ */
+function byReminderOrder(a: Reminder, b: Reminder): number {
+  if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+  if (a.createdAt !== b.createdAt) return a.createdAt < b.createdAt ? -1 : 1;
+  return 0;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -202,6 +226,49 @@ export const useAppStore = create<AppState>((set, get) => ({
       meetings: s.meetings.some((x) => x.id === m.id)
         ? s.meetings.map((x) => (x.id === m.id ? m : x))
         : [m, ...s.meetings],
+    }));
+  },
+
+  // ---------- 工作提醒 ----------
+  reminders: [],
+  remindersLoading: false,
+  remindersLoaded: false,
+  loadReminders: async (force = false) => {
+    if (get().remindersLoaded && !force) return get().reminders;
+    set({ remindersLoading: true });
+    try {
+      const list = await reminderApi.list();
+      set({ reminders: list, remindersLoaded: true });
+      return list;
+    } finally {
+      set({ remindersLoading: false });
+    }
+  },
+  addReminder: async (input) => {
+    const created = await reminderApi.create(input);
+    set((s) => ({ reminders: [...s.reminders, created].sort(byReminderOrder) }));
+    return created;
+  },
+  updateReminder: async (id, patch) => {
+    const updated = await reminderApi.update(id, patch);
+    set((s) => ({
+      reminders: s.reminders
+        .map((r) => (r.id === id ? updated : r))
+        .sort(byReminderOrder),
+    }));
+    return updated;
+  },
+  deleteReminder: async (id) => {
+    await reminderApi.remove(id);
+    set((s) => ({ reminders: s.reminders.filter((r) => r.id !== id) }));
+  },
+  upsertReminder: (r) => {
+    set((s) => ({
+      reminders: (
+        s.reminders.some((x) => x.id === r.id)
+          ? s.reminders.map((x) => (x.id === r.id ? r : x))
+          : [...s.reminders, r]
+      ).sort(byReminderOrder),
     }));
   },
 }));
